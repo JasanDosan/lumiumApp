@@ -1,0 +1,308 @@
+appMovies — Estructura del proyecto
+=====================================
+Generado: 2026-03-31
+
+MONOREPO: dos apps Node independientes (frontend/ y backend/)
+Sin packages compartidos. El Vite dev server proxea /api/* → localhost:5000
+
+══════════════════════════════════════════
+  RAÍZ
+══════════════════════════════════════════
+
+appMovies/
+├── CLAUDE.md                          Instrucciones para Claude Code
+├── .gitignore
+├── skills-lock.json                   Registro de skills instalados
+│
+├── .claude/
+│   └── skills/                        Skills de Claude Code (symlinks)
+│       ├── algorithmic-art
+│       ├── brand-guidelines
+│       ├── canvas-design
+│       ├── claude-api
+│       ├── deploy-to-vercel
+│       ├── doc-coauthoring
+│       ├── docx / pdf / pptx / xlsx
+│       ├── frontend-design
+│       ├── internal-comms
+│       ├── mcp-builder
+│       ├── skill-creator
+│       ├── slack-gif-creator
+│       ├── template-skill
+│       ├── theme-factory
+│       ├── vercel-cli-with-tokens
+│       ├── vercel-composition-patterns
+│       ├── vercel-react-best-practices
+│       ├── vercel-react-native-skills
+│       ├── web-artifacts-builder
+│       ├── web-design-guidelines
+│       └── webapp-testing
+
+
+══════════════════════════════════════════
+  BACKEND  (Node + Express + MongoDB)
+══════════════════════════════════════════
+
+backend/
+├── package.json
+├── .env                               Variables de entorno (no en repo)
+├── .env.example                       Plantilla de variables
+│
+└── src/
+    ├── server.js                      Entry point — Express app, rutas, middleware
+    │
+    ├── config/
+    │   ├── db.js                      Conexión a MongoDB (mongoose)
+    │   └── env.js                     Validación de variables de entorno al arrancar
+    │
+    ├── middleware/
+    │   ├── authMiddleware.js          JWT verify → req.user
+    │   ├── errorHandler.js            404 + error handler global
+    │   └── validate.js                Middleware de validación de esquemas
+    │
+    ├── models/
+    │   └── User.js                    Modelo Mongoose: user + favorites[] embebidos
+    │
+    ├── repositories/
+    │   └── userRepository.js          Abstracción de acceso a User (CRUD)
+    │
+    ├── routes/
+    │   ├── authRoutes.js              POST /api/auth/register|login, GET /api/auth/me
+    │   ├── movieRoutes.js             GET  /api/movies/* (ver detalle abajo)
+    │   ├── tvRoutes.js                GET  /api/tv/trending|popular
+    │   ├── personRoutes.js            GET  /api/people/:id
+    │   └── userRoutes.js              GET|POST|DELETE /api/users/favorites
+    │
+    ├── controllers/
+    │   ├── authController.js          register, login, getMe
+    │   ├── movieController.js         search, trending, popular, details, similar,
+    │   │                              discover, recommendations/me, genres,
+    │   │                              providers, collection, tmdbRecs
+    │   ├── tvController.js            getTrending, getPopular (series TMDB)
+    │   ├── personController.js        getPersonDetails
+    │   └── userController.js          getFavorites, addFavorite, removeFavorite
+    │
+    └── services/
+        ├── tmdbService.js             Cliente TMDB (axios + retry 429/5xx)
+        │                              normalizeMovie(), normalizeTV()
+        │                              searchMovies, getMovieDetails, getCollection,
+        │                              getSimilarMovies, getMovieRecommendations,
+        │                              getTrending, getPopularMovies, getGenres,
+        │                              discoverMovies, getWatchProviders,
+        │                              searchMulti, getPersonDetails,
+        │                              getTrendingTV, getPopularTV
+        │
+        ├── recommendationService.js   Motor de recomendaciones personalizadas
+        │                              Score = (crossHits×3) + (bayesianRating×2)
+        │                              + (log10(popularity)/log10(1001)×10)
+        │                              Cachea en user.recommendationHistory
+        │
+        └── authService.js             Lógica de auth (hash, JWT sign/verify)
+
+
+── RUTAS API ──────────────────────────────
+
+Método   Ruta                              Auth  Descripción
+───────  ─────────────────────────────────  ────  ──────────────────────────────
+POST     /api/auth/register                  —    Registro
+POST     /api/auth/login                     —    Login → JWT
+GET      /api/auth/me                        ✓    Usuario actual
+
+GET      /api/movies/search?q=&page=         —    Búsqueda de películas
+GET      /api/movies/search/multi?q=         —    Películas + personas (TMDB multi)
+GET      /api/movies/trending                —    Trending semana/día
+GET      /api/movies/popular                 —    Populares
+GET      /api/movies/genres                  —    Lista de géneros
+GET      /api/movies/discover               —    Filtrado avanzado (géneros, año,
+         ?genres=&year_gte=&year_lte=              rating, sort, persona, provider)
+         &rating_gte=&sort_by=
+         &with_person=&with_watch_providers=
+GET      /api/movies/recommendations/me      ✓    Recomendaciones personalizadas
+GET      /api/movies/providers?region=       —    Proveedores de streaming
+GET      /api/movies/collection/:id          —    Colección/saga
+GET      /api/movies/:id                     —    Detalle (credits, videos, keywords)
+GET      /api/movies/:id/similar             —    Películas similares
+GET      /api/movies/:id/recommendations     —    Recomendaciones TMDB para película
+
+GET      /api/tv/trending                    —    Series trending (semana)
+GET      /api/tv/popular                     —    Series populares
+
+GET      /api/people/:id                     —    Persona + filmografía
+
+GET      /api/users/favorites                ✓    Listar favoritos
+POST     /api/users/favorites                ✓    Añadir favorito
+DELETE   /api/users/favorites                ✓    Eliminar favorito
+
+
+══════════════════════════════════════════
+  FRONTEND  (React 18 + Vite + Tailwind v3)
+══════════════════════════════════════════
+
+frontend/
+├── index.html
+├── vite.config.js                     Path alias @/ → src/, proxy /api → :5000
+├── tailwind.config.js                 Design system A24-inspired
+├── postcss.config.js
+├── package.json
+├── .env.example
+│
+└── src/
+    ├── main.jsx                       Entry point React
+    ├── App.jsx                        Router (React Router v6)
+    ├── index.css                      Estilos globales + @layer base
+    │
+    ├── components/
+    │   ├── layout/
+    │   │   ├── Header.jsx             Navegación fija + menú auth
+    │   │   ├── Layout.jsx             Wrapper principal + <Outlet>
+    │   │   └── ProtectedRoute.jsx     Guard de autenticación
+    │   │
+    │   └── ui/
+    │       ├── Button.jsx
+    │       ├── Input.jsx
+    │       ├── Spinner.jsx
+    │       ├── StarRating.jsx
+    │       ├── SectionHeader.jsx
+    │       ├── SectionWrapper.jsx     label + title + seeAllTo + children
+    │       └── PersonCard.jsx
+    │
+    ├── data/
+    │   └── gameMovieTags.js           Catálogo de juegos con meta-tags
+    │                                  GAME_CATALOG[]
+    │                                    id, name, emoji, tagline
+    │                                    meta: { theme[], mood[], pacing[] }
+    │                                  translateMetaToTMDB(meta) → filtros TMDB
+    │                                  translateGameToMovieFilters(id) — compat
+    │                                  MOVIE_TO_GAME_HINTS[] — inverso (base)
+    │
+    ├── hooks/
+    │   ├── useDebounce.js             Hook genérico de debounce (400ms default)
+    │   ├── useAsync.js                Wrapper genérico async con estado
+    │   ├── useMovieSearch.js          Búsqueda + paginación
+    │   └── useGameToMovie.js          Mood Transfer Engine hook
+    │                                  gameId → translateMetaToTMDB → discover
+    │                                  returns { game, movies[], isLoading }
+    │
+    ├── services/
+    │   ├── api.js                     Instancia Axios base
+    │   │                              Interceptor req: añade JWT desde tokenStore
+    │   │                              Interceptor res: 401 → logout (lazy import)
+    │   ├── tokenStore.js              Módulo plano que guarda el JWT en memoria
+    │   │                              (rompe la dependencia circular api ↔ authStore)
+    │   ├── authService.js             login, register, getMe
+    │   ├── movieService.js            search, getTrending, getPopular, getDetails,
+    │   │                              getSimilar, getRecommendations, getGenres,
+    │   │                              discover, getProviders, searchMulti,
+    │   │                              getMovieRecs, getCollection
+    │   ├── tvService.js               getTrending, getPopular (series)
+    │   ├── favoritesService.js        get, add, remove favoritos
+    │   └── personService.js           getPersonDetails
+    │
+    └── features/
+        │
+        ├── auth/
+        │   ├── authStore.js           Zustand — user, isAuthenticated, token
+        │   │                          login, register, logout, initAuth
+        │   │                          Escribe token en tokenStore tras login
+        │   ├── LoginPage.jsx
+        │   └── RegisterPage.jsx
+        │
+        ├── home/
+        │   ├── HomePage.jsx           Hero + secciones trending/popular/recs
+        │   ├── HeroMovie.jsx          Banner full-screen con backdrop
+        │   └── SearchBar.jsx          Input de búsqueda global
+        │
+        ├── discover/
+        │   ├── DiscoverPage.jsx       Feed unificado — NO hay modos separados
+        │   │                          Estructura fija:
+        │   │                            1. GameSelector (Tonight after playing)
+        │   │                            2. Games you might also like (chips)
+        │   │                            3. ContentCarousel — Trending TV
+        │   │                            4. ContentCarousel — Recommended (auth)
+        │   │                            5. MainGrid (infinite scroll, siempre visible)
+        │   │                          Filters → cambia contenido del grid, NO layout
+        │   │
+        │   ├── FilterBar.jsx          Sticky: búsqueda + género + año + rating + sort
+        │   ├── GameSelector.jsx       Controlado (selectedId + onGameChange como props)
+        │   │                          Session context (tiempo desde última sesión)
+        │   │                          Dropdown de juegos → llama useGameToMovie
+        │   └── ContentCarousel.jsx    Carrusel reutilizable: label+title+MovieRow
+        │                              Se oculta automáticamente si items=[]/loading=false
+        │
+        ├── movies/
+        │   ├── MovieCard.jsx          Poster + título + año + favorito toggle
+        │   │                          Prop `to`: override de ruta (null = no clickable)
+        │   │                          Badge "SERIES" si mediaType='tv'
+        │   ├── MovieRow.jsx           Scroll horizontal drag + touch
+        │   │                          Pasa to={null} a TV items
+        │   ├── MovieGrid.jsx          Grid vertical simple
+        │   ├── MovieDetailPage.jsx    Detalle completo: cast, crew, trailer, recs
+        │   └── MoviesPage.jsx
+        │
+        ├── favorites/
+        │   ├── favoritesStore.js      Zustand — favorites[], add, remove, isFavorite
+        │   │                          Con auth: sincroniza con backend
+        │   │                          Sin auth: localStorage
+        │   └── FavoritesPage.jsx
+        │
+        ├── recommendations/
+        │   └── RecommendationsPage.jsx  Listado de recomendaciones personalizadas
+        │
+        ├── search/
+        │   └── SearchPage.jsx
+        │
+        ├── person/
+        │   └── PersonPage.jsx         Detalle de actor/director + filmografía
+        │
+        └── profile/
+            └── ProfilePage.jsx
+
+
+── DESIGN SYSTEM (Tailwind) ───────────────
+
+Colores custom:
+  bg-canvas     #fafafa   (fondo página)
+  bg-white                (superficies)
+  text-ink      #111       (texto principal)
+  text-ink-mid  #6b6b6b   (texto secundario)
+  text-ink-light #a0a0a0  (texto terciario)
+  border-line   #e5e5e5   (bordes)
+
+Tipografía: Inter — sin serifa en ningún sitio
+
+Botón primario: bg-ink text-white rounded-full
+MovieCard: poster + título, sin caja contenedora, hover scale-[1.03]
+
+
+── MOOD TRANSFER ENGINE ───────────────────
+
+Flujo:
+  GAME_CATALOG[n].meta
+    └── translateMetaToTMDB(meta)
+          ├── theme[] → THEME_TO_GENRES → Set de genre IDs (máx 3)
+          ├── mood[]  → sort_by (epic/fun/explosive → popularity.desc)
+          └── mood[] + pacing[] → rating_gte (6.0 → 6.5 → 7.0 → 7.5 con prestige)
+    └── movieService.discover({ genres, sort_by, rating_gte, page: 1 })
+    └── hasta 16 películas en carrusel
+
+Inverse (base preparada, sin UI):
+  MOVIE_TO_GAME_HINTS[] — mapea temáticas de película a juegos sugeridos
+
+
+── ESTADO GLOBAL ──────────────────────────
+
+Store         Librería   Persiste    Uso
+────────────  ─────────  ──────────  ─────────────────────────────
+authStore     Zustand    sessionStorage/memory  user, token, isAuthenticated
+favoritesStore Zustand   localStorage + backend favorites[]
+
+
+── NOTAS ARQUITECTURA ─────────────────────
+
+- Dependencia circular api ↔ authStore resuelta con tokenStore.js (módulo plano)
+- Double-fetch en StrictMode evitado con useRef(false) guard en efectos de carga
+- TV items normalizados en backend con mediaType:'tv' para distinguirlos en frontend
+- IntersectionObserver con rootMargin:'400px' para pre-cargar antes de llegar al final
+- Rate limit TMDB: cargas escalonadas con setTimeout(fn, i * 300)
+- Debounce de filtros: 450ms — evita llamadas durante escritura
+- Grid siempre visible (sin modo filtro separado): los filtros cambian contenido, no layout

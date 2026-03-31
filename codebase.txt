@@ -1,0 +1,2739 @@
+=================================================
+  CINEMATCH - FULL CODEBASE (post tech-lead review)
+  Generated: Mon, Mar 30, 2026  5:20:48 PM
+  Total files: 55
+=================================================
+
+========================================
+FILE: .gitignore
+========================================
+node_modules/
+dist/
+.env
+*.local
+.DS_Store
+Thumbs.db
+coverage/
+
+
+========================================
+FILE: backend/.env.example
+========================================
+NODE_ENV=development
+PORT=5000
+
+# MongoDB
+MONGO_URI=mongodb://localhost:27017/appmovies
+
+# JWT
+JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+JWT_EXPIRES_IN=7d
+
+# TMDB API
+TMDB_API_KEY=9eab347ff7e846c61f8d0cbf4b73ae6c
+TMDB_BASE_URL=https://api.themoviedb.org/3
+TMDB_IMAGE_BASE_URL=https://image.tmdb.org/t/p
+
+# Client
+CLIENT_URL=http://localhost:5173
+
+
+========================================
+FILE: backend/package.json
+========================================
+{
+  "name": "appmovies-backend",
+  "version": "1.0.0",
+  "description": "Movie recommendations API",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest --coverage"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^6.3.3"
+  }
+}
+
+
+========================================
+FILE: backend/src/server.js
+========================================
+import 'dotenv/config';
+import { validateEnv } from './config/env.js';
+validateEnv(); // fail fast if env is misconfigured
+
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+
+import { connectDB } from './config/db.js';
+import authRoutes from './routes/authRoutes.js';
+import movieRoutes from './routes/movieRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import { errorHandler, notFound } from './middleware/errorHandler.js';
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// ─── Security ─────────────────────────────────────────────────────────────────
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true,
+}));
+
+// ─── Rate limiting ────────────────────────────────────────────────────────────
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+app.use('/api', limiter);
+
+// ─── Body parsing ─────────────────────────────────────────────────────────────
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true }));
+if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/movies', movieRoutes);
+app.use('/api/users', userRoutes);
+
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', environment: process.env.NODE_ENV });
+});
+
+// ─── Error handling ───────────────────────────────────────────────────────────
+app.use(notFound);
+app.use(errorHandler);
+
+// ─── Bootstrap ───────────────────────────────────────────────────────────────
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  });
+});
+
+export default app;
+
+
+========================================
+FILE: backend/src/config/db.js
+========================================
+import mongoose from 'mongoose';
+
+export const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000,
+    });
+    console.log(`MongoDB connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`MongoDB connection error: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+
+========================================
+FILE: backend/src/config/env.js
+========================================
+/**
+ * Validates required environment variables at startup.
+ * Fails fast with a clear message instead of cryptic runtime errors.
+ */
+const REQUIRED = [
+  'MONGO_URI',
+  'JWT_SECRET',
+  'TMDB_API_KEY',
+  'TMDB_BASE_URL',
+];
+
+export const validateEnv = () => {
+  const missing = REQUIRED.filter(key => !process.env[key]);
+  if (missing.length) {
+    console.error(`\n❌ Missing required environment variables:\n  ${missing.join('\n  ')}`);
+    console.error('Copy .env.example to .env and fill in the values.\n');
+    process.exit(1);
+  }
+
+  if (process.env.JWT_SECRET === 'your_super_secret_jwt_key_change_this_in_production') {
+    console.warn('⚠️  WARNING: Using default JWT_SECRET. Change it before deploying.');
+  }
+};
+
+
+========================================
+FILE: backend/src/middleware/errorHandler.js
+========================================
+export const notFound = (req, res, next) => {
+  const error = new Error(`Not found - ${req.originalUrl}`);
+  res.status(404);
+  next(error);
+};
+
+export const errorHandler = (err, req, res, _next) => {
+  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  const isDev = process.env.NODE_ENV === 'development';
+
+  res.status(statusCode).json({
+    error: err.message,
+    ...(isDev && { stack: err.stack }),
+  });
+};
+
+// Factory for consistent API errors
+export class AppError extends Error {
+  constructor(message, statusCode) {
+    super(message);
+    this.statusCode = statusCode;
+    this.isOperational = true;
+  }
+}
+
+
+========================================
+FILE: backend/src/middleware/authMiddleware.js
+========================================
+import jwt from 'jsonwebtoken';
+import { AppError } from './errorHandler.js';
+import { findUserById } from '../repositories/userRepository.js';
+
+export const protect = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new AppError('Not authenticated. Please log in.', 401);
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await findUserById(decoded.id);
+    if (!user) throw new AppError('User no longer exists.', 401);
+
+    req.user = user;
+    next();
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return next(new AppError('Invalid token.', 401));
+    }
+    if (error.name === 'TokenExpiredError') {
+      return next(new AppError('Token expired. Please log in again.', 401));
+    }
+    next(error);
+  }
+};
+
+
+========================================
+FILE: backend/src/middleware/validate.js
+========================================
+import { validationResult } from 'express-validator';
+
+export const validate = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400);
+    return next(new Error(errors.array().map(e => e.msg).join(', ')));
+  }
+  next();
+};
+
+
+========================================
+FILE: backend/src/models/User.js
+========================================
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+
+const favoriteMovieSchema = new mongoose.Schema({
+  tmdbId: { type: Number, required: true },
+  title: { type: String, required: true },
+  posterPath: { type: String },
+  rating: { type: Number },
+  addedAt: { type: Date, default: Date.now },
+}, { _id: false });
+
+const recommendationHistorySchema = new mongoose.Schema({
+  generatedAt: { type: Date, default: Date.now },
+  basedOn: [{ type: Number }], // tmdbIds of favorites used
+  movieIds: [{ type: Number }], // recommended tmdbIds
+}, { _id: false });
+
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Name is required'],
+    trim: true,
+    maxlength: [50, 'Name cannot exceed 50 characters'],
+  },
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email'],
+  },
+  password: {
+    type: String,
+    required: [true, 'Password is required'],
+    minlength: [8, 'Password must be at least 8 characters'],
+    select: false,
+  },
+  favorites: [favoriteMovieSchema],
+  recommendationHistory: {
+    type: [recommendationHistorySchema],
+    default: [],
+  },
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true },
+});
+
+// Hash password before save
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, 12);
+  next();
+});
+
+// Instance method: compare passwords
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Virtual: favorites count
+userSchema.virtual('favoritesCount').get(function () {
+  return this.favorites.length;
+});
+
+export default mongoose.model('User', userSchema);
+
+
+========================================
+FILE: backend/src/repositories/userRepository.js
+========================================
+import User from '../models/User.js';
+
+export const findUserById = (id) =>
+  User.findById(id);
+
+export const findUserByIdWithPassword = (id) =>
+  User.findById(id).select('+password');
+
+export const findUserByEmail = (email) =>
+  User.findOne({ email }).select('+password');
+
+export const createUser = (data) =>
+  User.create(data);
+
+export const updateUserFavorites = (userId, favorites) =>
+  User.findByIdAndUpdate(userId, { favorites }, { new: true, runValidators: true });
+
+export const pushRecommendationHistory = (userId, historyEntry) =>
+  User.findByIdAndUpdate(
+    userId,
+    {
+      $push: {
+        recommendationHistory: {
+          $each: [historyEntry],
+          $slice: -50, // keep last 50 entries
+        },
+      },
+    },
+    { new: true }
+  );
+
+
+========================================
+FILE: backend/src/services/tmdbService.js
+========================================
+import axios from 'axios';
+
+const tmdb = axios.create({
+  baseURL: process.env.TMDB_BASE_URL,
+  params: { api_key: process.env.TMDB_API_KEY, language: 'en-US' },
+  timeout: 10000,
+});
+
+// ─── Retry interceptor (handles 429 rate-limit and transient 5xx) ─────────────
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRIES = 3;
+
+tmdb.interceptors.response.use(null, async (error) => {
+  const config = error.config;
+  if (!config) return Promise.reject(error);
+
+  config.__retries = (config.__retries ?? 0) + 1;
+  const status = error.response?.status;
+
+  if (config.__retries <= MAX_RETRIES && RETRYABLE.has(status)) {
+    // Respect Retry-After header from TMDB on 429
+    const retryAfter = error.response?.headers?.['retry-after'];
+    const delay = retryAfter ? Number(retryAfter) * 1000 : 2 ** config.__retries * 300;
+    await new Promise(r => setTimeout(r, delay));
+    return tmdb(config);
+  }
+
+  return Promise.reject(error);
+});
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const buildImageUrl = (path, size = 'w500') =>
+  path ? `${process.env.TMDB_IMAGE_BASE_URL}/${size}${path}` : null;
+
+const normalizeMovie = (movie) => ({
+  tmdbId: movie.id,
+  title: movie.title,
+  overview: movie.overview,
+  posterPath: movie.poster_path,
+  posterUrl: buildImageUrl(movie.poster_path),
+  backdropUrl: buildImageUrl(movie.backdrop_path, 'w1280'),
+  rating: movie.vote_average,
+  voteCount: movie.vote_count,
+  popularity: movie.popularity,
+  releaseDate: movie.release_date,
+  genreIds: movie.genre_ids ?? [],
+  genres: movie.genres ?? [],
+});
+
+// ─── API calls ────────────────────────────────────────────────────────────────
+
+export const searchMovies = async (query, page = 1) => {
+  const { data } = await tmdb.get('/search/movie', {
+    params: { query, page, include_adult: false },
+  });
+  return {
+    results: data.results.map(normalizeMovie),
+    totalResults: data.total_results,
+    totalPages: data.total_pages,
+    page: data.page,
+  };
+};
+
+export const getMovieDetails = async (tmdbId) => {
+  const { data } = await tmdb.get(`/movie/${tmdbId}`, {
+    params: { append_to_response: 'credits,videos,keywords' },
+  });
+  return {
+    ...normalizeMovie(data),
+    runtime: data.runtime,
+    tagline: data.tagline,
+    budget: data.budget,
+    revenue: data.revenue,
+    status: data.status,
+    originalLanguage: data.original_language,
+    cast: data.credits?.cast?.slice(0, 10).map(c => ({
+      id: c.id,
+      name: c.name,
+      character: c.character,
+      profileUrl: buildImageUrl(c.profile_path, 'w185'),
+    })) ?? [],
+    director: data.credits?.crew?.find(c => c.job === 'Director')?.name ?? null,
+    trailerKey: data.videos?.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key ?? null,
+  };
+};
+
+export const getSimilarMovies = async (tmdbId, page = 1) => {
+  const { data } = await tmdb.get(`/movie/${tmdbId}/similar`, { params: { page } });
+  return data.results.map(normalizeMovie);
+};
+
+export const getMovieRecommendations = async (tmdbId) => {
+  const { data } = await tmdb.get(`/movie/${tmdbId}/recommendations`);
+  return data.results.map(normalizeMovie);
+};
+
+export const getTrending = async (timeWindow = 'week') => {
+  const { data } = await tmdb.get(`/trending/movie/${timeWindow}`);
+  return data.results.map(normalizeMovie);
+};
+
+export const getPopularMovies = async (page = 1) => {
+  const { data } = await tmdb.get('/movie/popular', { params: { page } });
+  return data.results.map(normalizeMovie);
+};
+
+export const getGenres = async () => {
+  const { data } = await tmdb.get('/genre/movie/list');
+  return data.genres;
+};
+
+
+========================================
+FILE: backend/src/services/recommendationService.js
+========================================
+/**
+ * recommendationService.js
+ *
+ * Scoring formula:
+ *   score = (crossHits * 3) + (adjustedRating * 2) + normalizedPopularity
+ *
+ * - crossHits: how many of the user's favorites recommended this movie
+ * - adjustedRating: Bayesian-adjusted rating (penalizes low vote counts)
+ * - normalizedPopularity: log-scaled TMDB popularity to reduce dominance of
+ *   blockbusters over genuinely relevant matches
+ *
+ * Design: pure business logic, no Express/DOM dependencies → reusable in RN.
+ */
+
+import { getMovieRecommendations } from './tmdbService.js';
+import { pushRecommendationHistory } from '../repositories/userRepository.js';
+
+const MAX_RECOMMENDATIONS = 50;
+const TMDB_CONCURRENCY_LIMIT = 5; // max parallel TMDB requests (rate limit: 40/10s)
+const MIN_VOTE_COUNT = 20;        // ignore movies with too few votes
+const BAYESIAN_PRIOR_VOTES = 500; // assumed vote count for prior
+const BAYESIAN_PRIOR_MEAN = 6.5;  // global TMDB average rating
+
+// ─── Concurrency limiter ──────────────────────────────────────────────────────
+
+const chunked = (arr, size) => {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+};
+
+const fetchWithConcurrencyLimit = async (ids, fetcher, limit) => {
+  const results = [];
+  for (const chunk of chunked(ids, limit)) {
+    const chunkResults = await Promise.allSettled(chunk.map(fetcher));
+    results.push(...chunkResults);
+  }
+  return results;
+};
+
+// ─── Scoring ──────────────────────────────────────────────────────────────────
+
+/**
+ * Bayesian average: smooths out ratings on movies with few votes.
+ * A movie with 5 votes and rating 10 gets pulled toward the global mean.
+ * Formula: (v / (v + m)) * R + (m / (v + m)) * C
+ *   v = vote count, m = prior votes, R = raw rating, C = global mean
+ */
+export const bayesianRating = (rating, voteCount) => {
+  const v = voteCount ?? 0;
+  const m = BAYESIAN_PRIOR_VOTES;
+  const C = BAYESIAN_PRIOR_MEAN;
+  return (v / (v + m)) * rating + (m / (v + m)) * C;
+};
+
+/**
+ * Log-scale popularity to prevent blockbusters (pop=5000) from dominating.
+ * Output range: 0–10
+ */
+const normalizePopularity = (popularity) => {
+  if (!popularity || popularity <= 0) return 0;
+  return Math.min((Math.log10(popularity + 1) / Math.log10(1001)) * 10, 10);
+};
+
+export const computeScore = (crossHits, rating, voteCount, popularity) => {
+  const adjusted = bayesianRating(rating ?? 0, voteCount ?? 0);
+  const pop = normalizePopularity(popularity);
+  return crossHits * 3 + adjusted * 2 + pop;
+};
+
+// ─── Core engine ──────────────────────────────────────────────────────────────
+
+/**
+ * Build a scored, deduplicated recommendation list from favorite movie IDs.
+ * @param {number[]} favoriteTmdbIds
+ * @returns {Promise<ScoredMovie[]>}
+ */
+export const buildRecommendations = async (favoriteTmdbIds) => {
+  if (!favoriteTmdbIds.length) return [];
+
+  // Use a Set for O(1) membership checks instead of Array.includes() O(n)
+  const favSet = new Set(favoriteTmdbIds);
+
+  const results = await fetchWithConcurrencyLimit(
+    favoriteTmdbIds,
+    getMovieRecommendations,
+    TMDB_CONCURRENCY_LIMIT
+  );
+
+  const movieMap = new Map();
+
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue;
+    for (const movie of result.value) {
+      if (favSet.has(movie.tmdbId)) continue;
+      // Filter out movies with too few votes — their ratings are unreliable
+      if ((movie.voteCount ?? 0) < MIN_VOTE_COUNT) continue;
+
+      if (movieMap.has(movie.tmdbId)) {
+        movieMap.get(movie.tmdbId).crossHits += 1;
+      } else {
+        movieMap.set(movie.tmdbId, { ...movie, crossHits: 1 });
+      }
+    }
+  }
+
+  const scored = [...movieMap.values()]
+    .map(movie => ({
+      ...movie,
+      score: computeScore(movie.crossHits, movie.rating, movie.voteCount, movie.popularity),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_RECOMMENDATIONS);
+
+  return scored;
+};
+
+/**
+ * Generate and persist recommendations for an authenticated user.
+ */
+export const generateForUser = async (user) => {
+  const favIds = user.favorites.map(f => f.tmdbId);
+  const recommendations = await buildRecommendations(favIds);
+
+  if (recommendations.length) {
+    pushRecommendationHistory(user._id, {
+      basedOn: favIds,
+      movieIds: recommendations.map(r => r.tmdbId),
+    }).catch(err => console.error('Failed to save recommendation history:', err));
+  }
+
+  return recommendations;
+};
+
+
+========================================
+FILE: backend/src/services/authService.js
+========================================
+import jwt from 'jsonwebtoken';
+import { createUser, findUserByEmail } from '../repositories/userRepository.js';
+import { AppError } from '../middleware/errorHandler.js';
+
+const signToken = (id) =>
+  jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  });
+
+const sanitizeUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  createdAt: user.createdAt,
+});
+
+export const register = async ({ name, email, password }) => {
+  const existing = await findUserByEmail(email);
+  if (existing) throw new AppError('Email already in use.', 409);
+
+  const user = await createUser({ name, email, password });
+  const token = signToken(user._id);
+
+  return { token, user: sanitizeUser(user) };
+};
+
+export const login = async ({ email, password }) => {
+  const user = await findUserByEmail(email);
+  if (!user || !(await user.comparePassword(password))) {
+    throw new AppError('Invalid email or password.', 401);
+  }
+
+  const token = signToken(user._id);
+  return { token, user: sanitizeUser(user) };
+};
+
+
+========================================
+FILE: backend/src/controllers/authController.js
+========================================
+import * as authService from '../services/authService.js';
+
+export const register = async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body;
+    const result = await authService.register({ name, email, password });
+    res.status(201).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const result = await authService.login({ email, password });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMe = (req, res) => {
+  res.json({
+    id: req.user._id,
+    name: req.user.name,
+    email: req.user.email,
+    favoritesCount: req.user.favoritesCount,
+    createdAt: req.user.createdAt,
+  });
+};
+
+
+========================================
+FILE: backend/src/controllers/movieController.js
+========================================
+import * as tmdb from '../services/tmdbService.js';
+import { generateForUser } from '../services/recommendationService.js';
+
+export const search = async (req, res, next) => {
+  try {
+    const { q, page = 1 } = req.query;
+    if (!q?.trim()) return res.json({ results: [], totalResults: 0, totalPages: 0, page: 1 });
+    const data = await tmdb.searchMovies(q.trim(), Number(page));
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getTrending = async (req, res, next) => {
+  try {
+    const { window = 'week' } = req.query;
+    const movies = await tmdb.getTrending(window);
+    res.json({ results: movies });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPopular = async (req, res, next) => {
+  try {
+    const { page = 1 } = req.query;
+    const movies = await tmdb.getPopularMovies(Number(page));
+    res.json({ results: movies });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDetails = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const movie = await tmdb.getMovieDetails(Number(id));
+    res.json(movie);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSimilar = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const movies = await tmdb.getSimilarMovies(Number(id));
+    res.json({ results: movies });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getRecommendations = async (req, res, next) => {
+  try {
+    const recommendations = await generateForUser(req.user);
+    res.json({ results: recommendations, count: recommendations.length });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getGenres = async (req, res, next) => {
+  try {
+    const genres = await tmdb.getGenres();
+    res.json({ genres });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+========================================
+FILE: backend/src/controllers/userController.js
+========================================
+import { updateUserFavorites } from '../repositories/userRepository.js';
+import { AppError } from '../middleware/errorHandler.js';
+
+export const getFavorites = (req, res) => {
+  res.json({ favorites: req.user.favorites });
+};
+
+export const addFavorite = async (req, res, next) => {
+  try {
+    const { tmdbId, title, posterPath, rating } = req.body;
+    if (!tmdbId || !title) throw new AppError('tmdbId and title are required.', 400);
+
+    const parsedId = Number(tmdbId);
+    if (!Number.isInteger(parsedId) || parsedId <= 0) {
+      throw new AppError('tmdbId must be a positive integer.', 400);
+    }
+
+    const alreadyAdded = req.user.favorites.some(f => f.tmdbId === parsedId);
+    if (alreadyAdded) return res.json({ favorites: req.user.favorites });
+
+    const newFavorite = { tmdbId: parsedId, title, posterPath, rating, addedAt: new Date() };
+    const updatedFavorites = [...req.user.favorites, newFavorite];
+
+    const user = await updateUserFavorites(req.user._id, updatedFavorites);
+    res.json({ favorites: user.favorites });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const removeFavorite = async (req, res, next) => {
+  try {
+    const { tmdbId } = req.params;
+    const parsedId = Number(tmdbId);
+    if (!Number.isInteger(parsedId) || parsedId <= 0) {
+      return next(new AppError('Invalid tmdbId.', 400));
+    }
+    const updatedFavorites = req.user.favorites.filter(f => f.tmdbId !== parsedId);
+
+    const user = await updateUserFavorites(req.user._id, updatedFavorites);
+    res.json({ favorites: user.favorites });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getRecommendationHistory = (req, res) => {
+  res.json({ history: req.user.recommendationHistory });
+};
+
+
+========================================
+FILE: backend/src/routes/authRoutes.js
+========================================
+import { Router } from 'express';
+import { body } from 'express-validator';
+import { register, login, getMe } from '../controllers/authController.js';
+import { protect } from '../middleware/authMiddleware.js';
+import { validate } from '../middleware/validate.js';
+
+const router = Router();
+
+router.post(
+  '/register',
+  [
+    body('name').trim().notEmpty().withMessage('Name is required'),
+    body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+    body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  ],
+  validate,
+  register
+);
+
+router.post(
+  '/login',
+  [
+    body('email').isEmail().withMessage('Valid email is required').normalizeEmail(),
+    body('password').notEmpty().withMessage('Password is required'),
+  ],
+  validate,
+  login
+);
+
+router.get('/me', protect, getMe);
+
+export default router;
+
+
+========================================
+FILE: backend/src/routes/movieRoutes.js
+========================================
+import { Router } from 'express';
+import { protect } from '../middleware/authMiddleware.js';
+import {
+  search,
+  getTrending,
+  getPopular,
+  getDetails,
+  getSimilar,
+  getRecommendations,
+  getGenres,
+} from '../controllers/movieController.js';
+
+const router = Router();
+
+// Static routes MUST come before /:id to avoid Express matching "recommendations" as an id param
+router.get('/search', search);
+router.get('/trending', getTrending);
+router.get('/popular', getPopular);
+router.get('/genres', getGenres);
+router.get('/recommendations/me', protect, getRecommendations); // ← before /:id
+
+// Dynamic routes last
+router.get('/:id', getDetails);
+router.get('/:id/similar', getSimilar);
+
+export default router;
+
+
+========================================
+FILE: backend/src/routes/userRoutes.js
+========================================
+import { Router } from 'express';
+import { protect } from '../middleware/authMiddleware.js';
+import {
+  getFavorites,
+  addFavorite,
+  removeFavorite,
+  getRecommendationHistory,
+} from '../controllers/userController.js';
+
+const router = Router();
+
+router.use(protect); // all user routes are protected
+
+router.get('/favorites', getFavorites);
+router.post('/favorites', addFavorite);
+router.delete('/favorites/:tmdbId', removeFavorite);
+router.get('/recommendation-history', getRecommendationHistory);
+
+export default router;
+
+
+========================================
+FILE: frontend/.env.example
+========================================
+VITE_API_BASE_URL=http://localhost:5000/api
+
+
+========================================
+FILE: frontend/package.json
+========================================
+{
+  "name": "appmovies-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.1",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
+    "vite": "^5.0.8"
+  }
+}
+
+
+========================================
+FILE: frontend/vite.config.js
+========================================
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+});
+
+
+========================================
+FILE: frontend/tailwind.config.js
+========================================
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        brand: {
+          DEFAULT: '#E50914',
+          hover: '#B20710',
+        },
+        surface: {
+          DEFAULT: '#141414',
+          card: '#1C1C1C',
+          overlay: '#242424',
+          border: '#333333',
+        },
+        text: {
+          primary: '#FFFFFF',
+          secondary: '#B3B3B3',
+          muted: '#6B6B6B',
+        },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      backgroundImage: {
+        'hero-gradient': 'linear-gradient(to right, rgba(0,0,0,0.9) 40%, transparent 100%)',
+        'card-gradient': 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 60%)',
+      },
+      keyframes: {
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        fadeIn: {
+          from: { opacity: 0, transform: 'translateY(8px)' },
+          to: { opacity: 1, transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        shimmer: 'shimmer 1.5s infinite linear',
+        'fade-in': 'fadeIn 0.3s ease-out forwards',
+      },
+    },
+  },
+  plugins: [],
+};
+
+
+========================================
+FILE: frontend/postcss.config.js
+========================================
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+
+
+========================================
+FILE: frontend/index.html
+========================================
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#141414" />
+    <meta name="description" content="Discover your next favorite movie with personalized recommendations." />
+    <title>CineMatch — Movie Recommendations</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+
+========================================
+FILE: frontend/src/index.css
+========================================
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface text-text-primary font-sans antialiased;
+    min-height: 100dvh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-border rounded-full;
+  }
+}
+
+@layer components {
+  .skeleton {
+    @apply bg-surface-overlay rounded;
+    background-image: linear-gradient(
+      90deg,
+      #242424 25%,
+      #2e2e2e 50%,
+      #242424 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+  }
+}
+
+
+========================================
+FILE: frontend/src/main.jsx
+========================================
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
+import './index.css';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
+
+
+========================================
+FILE: frontend/src/App.jsx
+========================================
+import { Routes, Route, Navigate } from 'react-router-dom';
+import Layout from '@/components/layout/Layout';
+import HomePage from '@/features/home/HomePage';
+import MovieDetailPage from '@/features/movies/MovieDetailPage';
+import FavoritesPage from '@/features/favorites/FavoritesPage';
+import RecommendationsPage from '@/features/recommendations/RecommendationsPage';
+import LoginPage from '@/features/auth/LoginPage';
+import RegisterPage from '@/features/auth/RegisterPage';
+import ProtectedRoute from '@/components/layout/ProtectedRoute';
+import { useAuthStore } from '@/features/auth/authStore';
+import { useEffect } from 'react';
+
+export default function App() {
+  const { initAuth } = useAuthStore();
+
+  useEffect(() => {
+    initAuth();
+  }, [initAuth]);
+
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+
+      <Route element={<Layout />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/movie/:id" element={<MovieDetailPage />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/recommendations" element={<RecommendationsPage />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+
+========================================
+FILE: frontend/src/services/tokenStore.js
+========================================
+/**
+ * Thin module-level token holder.
+ * Breaks the circular dependency: api.js ← authStore ← authService ← api.js
+ *
+ * api.js reads from here (no store import needed).
+ * authStore writes to here on login/logout.
+ */
+
+let _token = null;
+
+export const getToken = () => _token;
+export const setToken = (token) => { _token = token; };
+export const clearToken = () => { _token = null; };
+
+
+========================================
+FILE: frontend/src/services/api.js
+========================================
+import axios from 'axios';
+import { getToken, clearToken } from './tokenStore';
+
+const api = axios.create({
+  baseURL: '/api',
+  timeout: 15000,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// Attach JWT on every request — reads from tokenStore, no circular import
+api.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// Normalize errors + auto-logout on 401
+api.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      'An unexpected error occurred';
+
+    if (error.response?.status === 401) {
+      clearToken();
+      // Lazy import to avoid circular dependency — only triggered on 401
+      import('@/features/auth/authStore').then(m => {
+        m.useAuthStore.getState().logout();
+      });
+    }
+
+    return Promise.reject(new Error(message));
+  }
+);
+
+export default api;
+
+
+========================================
+FILE: frontend/src/services/movieService.js
+========================================
+import api from './api';
+
+export const movieService = {
+  search: (query, page = 1) =>
+    api.get('/movies/search', { params: { q: query, page } }).then(r => r.data),
+
+  getTrending: (window = 'week') =>
+    api.get('/movies/trending', { params: { window } }).then(r => r.data),
+
+  getPopular: (page = 1) =>
+    api.get('/movies/popular', { params: { page } }).then(r => r.data),
+
+  getDetails: (id) =>
+    api.get(`/movies/${id}`).then(r => r.data),
+
+  getSimilar: (id) =>
+    api.get(`/movies/${id}/similar`).then(r => r.data),
+
+  getRecommendations: () =>
+    api.get('/movies/recommendations/me').then(r => r.data),
+
+  getGenres: () =>
+    api.get('/movies/genres').then(r => r.data),
+};
+
+
+========================================
+FILE: frontend/src/services/authService.js
+========================================
+import api from './api';
+
+export const authService = {
+  register: (data) =>
+    api.post('/auth/register', data).then(r => r.data),
+
+  login: (credentials) =>
+    api.post('/auth/login', credentials).then(r => r.data),
+
+  getMe: () =>
+    api.get('/auth/me').then(r => r.data),
+};
+
+
+========================================
+FILE: frontend/src/services/favoritesService.js
+========================================
+import api from './api';
+
+export const favoritesService = {
+  getAll: () =>
+    api.get('/users/favorites').then(r => r.data.favorites),
+
+  add: (movie) =>
+    api.post('/users/favorites', movie).then(r => r.data.favorites),
+
+  remove: (tmdbId) =>
+    api.delete(`/users/favorites/${tmdbId}`).then(r => r.data.favorites),
+};
+
+
+========================================
+FILE: frontend/src/hooks/useDebounce.js
+========================================
+import { useState, useEffect } from 'react';
+
+export const useDebounce = (value, delay = 400) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+
+========================================
+FILE: frontend/src/hooks/useMovieSearch.js
+========================================
+import { useState, useEffect } from 'react';
+import { movieService } from '@/services/movieService';
+import { useDebounce } from './useDebounce';
+
+export const useMovieSearch = () => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+
+  const debouncedQuery = useDebounce(query, 400);
+
+  useEffect(() => {
+    if (!debouncedQuery.trim()) {
+      setResults([]);
+      setTotalPages(0);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchResults = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await movieService.search(debouncedQuery, page);
+        setResults(data.results);
+        setTotalPages(data.totalPages);
+      } catch (err) {
+        if (err.name !== 'CanceledError') setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchResults();
+    return () => controller.abort();
+  }, [debouncedQuery, page]);
+
+  const clearSearch = () => {
+    setQuery('');
+    setResults([]);
+    setPage(1);
+  };
+
+  return { query, setQuery, results, isLoading, error, page, setPage, totalPages, clearSearch };
+};
+
+
+========================================
+FILE: frontend/src/hooks/useAsync.js
+========================================
+import { useState, useCallback } from 'react';
+
+/**
+ * Wraps an async function with loading/error/data state.
+ * Framework-agnostic — designed for easy reuse in React Native.
+ */
+export const useAsync = (asyncFn) => {
+  const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const execute = useCallback(async (...args) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await asyncFn(...args);
+      setData(result);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [asyncFn]);
+
+  const reset = useCallback(() => {
+    setData(null);
+    setError(null);
+    setIsLoading(false);
+  }, []);
+
+  return { data, isLoading, error, execute, reset };
+};
+
+
+========================================
+FILE: frontend/src/components/ui/Button.jsx
+========================================
+const variants = {
+  primary: 'bg-brand hover:bg-brand-hover text-white',
+  secondary: 'bg-surface-overlay hover:bg-surface-border text-text-primary',
+  ghost: 'hover:bg-surface-overlay text-text-secondary hover:text-text-primary',
+  outline: 'border border-surface-border hover:border-text-secondary text-text-primary',
+};
+
+const sizes = {
+  sm: 'px-3 py-1.5 text-sm',
+  md: 'px-4 py-2 text-sm',
+  lg: 'px-6 py-3 text-base',
+};
+
+export default function Button({
+  children,
+  variant = 'primary',
+  size = 'md',
+  className = '',
+  isLoading = false,
+  disabled,
+  ...props
+}) {
+  return (
+    <button
+      disabled={disabled || isLoading}
+      className={`
+        inline-flex items-center justify-center gap-2
+        font-medium rounded-lg transition-all duration-200
+        focus:outline-none focus:ring-2 focus:ring-brand/50
+        disabled:opacity-50 disabled:cursor-not-allowed
+        ${variants[variant]} ${sizes[size]} ${className}
+      `}
+      {...props}
+    >
+      {isLoading && (
+        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+        </svg>
+      )}
+      {children}
+    </button>
+  );
+}
+
+
+========================================
+FILE: frontend/src/components/ui/Input.jsx
+========================================
+export default function Input({
+  label,
+  error,
+  className = '',
+  containerClassName = '',
+  ...props
+}) {
+  return (
+    <div className={`flex flex-col gap-1.5 ${containerClassName}`}>
+      {label && (
+        <label className="text-sm font-medium text-text-secondary">
+          {label}
+        </label>
+      )}
+      <input
+        className={`
+          w-full px-4 py-2.5 rounded-lg
+          bg-surface-overlay border border-surface-border
+          text-text-primary placeholder:text-text-muted
+          focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/50
+          transition-colors duration-200
+          disabled:opacity-50
+          ${error ? 'border-red-500' : ''}
+          ${className}
+        `}
+        {...props}
+      />
+      {error && <p className="text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/components/ui/Spinner.jsx
+========================================
+export default function Spinner({ size = 'md', className = '' }) {
+  const sizes = { sm: 'h-4 w-4', md: 'h-8 w-8', lg: 'h-12 w-12' };
+  return (
+    <div className={`flex items-center justify-center ${className}`}>
+      <svg
+        className={`animate-spin text-brand ${sizes[size]}`}
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+      </svg>
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/components/ui/StarRating.jsx
+========================================
+export default function StarRating({ rating, className = '' }) {
+  const normalized = Math.round((rating / 10) * 5 * 2) / 2; // 0-5 in 0.5 steps
+  return (
+    <span className={`flex items-center gap-1 text-yellow-400 ${className}`}>
+      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+      </svg>
+      <span className="text-xs font-medium">{rating?.toFixed(1)}</span>
+    </span>
+  );
+}
+
+
+========================================
+FILE: frontend/src/components/layout/Header.jsx
+========================================
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/features/auth/authStore';
+import Button from '@/components/ui/Button';
+import { useState } from 'react';
+
+export default function Header() {
+  const { isAuthenticated, user, logout } = useAuthStore();
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const navLinkClass = ({ isActive }) =>
+    `text-sm font-medium transition-colors duration-200 ${
+      isActive ? 'text-white' : 'text-text-secondary hover:text-white'
+    }`;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+    setMenuOpen(false);
+  };
+
+  return (
+    <header className="fixed top-0 inset-x-0 z-50 bg-gradient-to-b from-black/90 to-transparent backdrop-blur-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2">
+            <span className="text-brand font-extrabold text-xl tracking-tight">CINE</span>
+            <span className="text-white font-extrabold text-xl tracking-tight">MATCH</span>
+          </Link>
+
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-6">
+            <NavLink to="/" end className={navLinkClass}>Home</NavLink>
+            {isAuthenticated && (
+              <>
+                <NavLink to="/favorites" className={navLinkClass}>Favorites</NavLink>
+                <NavLink to="/recommendations" className={navLinkClass}>For You</NavLink>
+              </>
+            )}
+          </nav>
+
+          {/* Auth */}
+          <div className="hidden md:flex items-center gap-3">
+            {isAuthenticated ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-text-secondary">Hi, {user?.name?.split(' ')[0]}</span>
+                <Button variant="ghost" size="sm" onClick={handleLogout}>Sign out</Button>
+              </div>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>Sign in</Button>
+                <Button size="sm" onClick={() => navigate('/register')}>Get started</Button>
+              </>
+            )}
+          </div>
+
+          {/* Mobile hamburger */}
+          <button
+            className="md:hidden text-text-secondary hover:text-white p-2"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label="Toggle menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {menuOpen
+                ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              }
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div className="md:hidden bg-surface/95 backdrop-blur-sm border-t border-surface-border px-4 py-4 flex flex-col gap-4 animate-fade-in">
+          <NavLink to="/" end className={navLinkClass} onClick={() => setMenuOpen(false)}>Home</NavLink>
+          {isAuthenticated && (
+            <>
+              <NavLink to="/favorites" className={navLinkClass} onClick={() => setMenuOpen(false)}>Favorites</NavLink>
+              <NavLink to="/recommendations" className={navLinkClass} onClick={() => setMenuOpen(false)}>For You</NavLink>
+            </>
+          )}
+          {isAuthenticated ? (
+            <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleLogout}>Sign out</Button>
+          ) : (
+            <div className="flex gap-3 pt-2">
+              <Button variant="secondary" size="sm" onClick={() => { navigate('/login'); setMenuOpen(false); }}>Sign in</Button>
+              <Button size="sm" onClick={() => { navigate('/register'); setMenuOpen(false); }}>Get started</Button>
+            </div>
+          )}
+        </div>
+      )}
+    </header>
+  );
+}
+
+
+========================================
+FILE: frontend/src/components/layout/Layout.jsx
+========================================
+import { Outlet, useLocation } from 'react-router-dom';
+import Header from './Header';
+import { useEffect } from 'react';
+import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import { useAuthStore } from '@/features/auth/authStore';
+
+export default function Layout() {
+  const location = useLocation();
+  const { isAuthenticated } = useAuthStore();
+  const { init } = useFavoritesStore();
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [location.pathname]);
+
+  // Init favorites (syncs from backend or localStorage)
+  useEffect(() => {
+    init();
+  }, [isAuthenticated, init]);
+
+  return (
+    <div className="min-h-screen bg-surface">
+      <Header />
+      <main className="pt-16">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/components/layout/ProtectedRoute.jsx
+========================================
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useAuthStore } from '@/features/auth/authStore';
+import Spinner from '@/components/ui/Spinner';
+
+export default function ProtectedRoute() {
+  const { isAuthenticated, isLoading } = useAuthStore();
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <Outlet />;
+}
+
+
+========================================
+FILE: frontend/src/features/auth/authStore.js
+========================================
+import { create } from 'zustand';
+import { authService } from '@/services/authService';
+import { setToken, clearToken } from '@/services/tokenStore';
+
+const TOKEN_KEY = 'cm_token';
+
+export const useAuthStore = create((set) => ({
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
+
+  initAuth: async () => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+    // Hydrate tokenStore immediately so the first API call has the token
+    setToken(token);
+    set({ token, isLoading: true });
+    try {
+      const user = await authService.getMe();
+      set({ user, isAuthenticated: true, isLoading: false });
+    } catch {
+      localStorage.removeItem(TOKEN_KEY);
+      clearToken();
+      set({ token: null, isLoading: false });
+    }
+  },
+
+  login: async (credentials) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { token, user } = await authService.login(credentials);
+      localStorage.setItem(TOKEN_KEY, token);
+      setToken(token);
+      set({ token, user, isAuthenticated: true, isLoading: false });
+      return true;
+    } catch (err) {
+      set({ error: err.message, isLoading: false });
+      return false;
+    }
+  },
+
+  register: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { token, user } = await authService.register(data);
+      localStorage.setItem(TOKEN_KEY, token);
+      setToken(token);
+      set({ token, user, isAuthenticated: true, isLoading: false });
+      return true;
+    } catch (err) {
+      set({ error: err.message, isLoading: false });
+      return false;
+    }
+  },
+
+  logout: () => {
+    localStorage.removeItem(TOKEN_KEY);
+    clearToken();
+    set({ user: null, token: null, isAuthenticated: false, error: null });
+    // No dynamic import needed — favoritesStore subscribes to auth changes via its own init
+  },
+
+  clearError: () => set({ error: null }),
+}));
+
+
+========================================
+FILE: frontend/src/features/auth/LoginPage.jsx
+========================================
+import { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuthStore } from './authStore';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+
+export default function LoginPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isLoading, error, clearError } = useAuthStore();
+
+  const [form, setForm] = useState({ email: '', password: '' });
+
+  const from = location.state?.from?.pathname || '/';
+
+  const handleChange = (e) => {
+    clearError();
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const ok = await login(form);
+    if (ok) navigate(from, { replace: true });
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 bg-surface">
+      <div className="w-full max-w-sm space-y-8 animate-fade-in">
+        {/* Logo */}
+        <div className="text-center">
+          <Link to="/" className="inline-flex items-center gap-1">
+            <span className="text-brand font-extrabold text-2xl">CINE</span>
+            <span className="text-white font-extrabold text-2xl">MATCH</span>
+          </Link>
+          <h1 className="text-xl font-semibold mt-6">Welcome back</h1>
+          <p className="text-text-secondary text-sm mt-1">Sign in to your account</p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+              {error}
+            </div>
+          )}
+
+          <Input
+            label="Email"
+            type="email"
+            name="email"
+            value={form.email}
+            onChange={handleChange}
+            placeholder="you@example.com"
+            autoComplete="email"
+            required
+          />
+
+          <Input
+            label="Password"
+            type="password"
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+            placeholder="••••••••"
+            autoComplete="current-password"
+            required
+          />
+
+          <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+            Sign in
+          </Button>
+        </form>
+
+        <p className="text-center text-sm text-text-secondary">
+          Don't have an account?{' '}
+          <Link to="/register" className="text-white hover:text-brand font-medium transition-colors">
+            Create one
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/features/auth/RegisterPage.jsx
+========================================
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuthStore } from './authStore';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+
+export default function RegisterPage() {
+  const navigate = useNavigate();
+  const { register, isLoading, error, clearError } = useAuthStore();
+
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const handleChange = (e) => {
+    clearError();
+    setFieldErrors(fe => ({ ...fe, [e.target.name]: undefined }));
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  };
+
+  const validate = () => {
+    const errors = {};
+    if (!form.name.trim()) errors.name = 'Name is required';
+    if (!form.email.includes('@')) errors.email = 'Enter a valid email';
+    if (form.password.length < 8) errors.password = 'Password must be at least 8 characters';
+    if (form.password !== form.confirm) errors.confirm = 'Passwords do not match';
+    return errors;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const errors = validate();
+    if (Object.keys(errors).length) return setFieldErrors(errors);
+
+    const ok = await register({ name: form.name, email: form.email, password: form.password });
+    if (ok) navigate('/');
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 bg-surface">
+      <div className="w-full max-w-sm space-y-8 animate-fade-in">
+        <div className="text-center">
+          <Link to="/" className="inline-flex items-center gap-1">
+            <span className="text-brand font-extrabold text-2xl">CINE</span>
+            <span className="text-white font-extrabold text-2xl">MATCH</span>
+          </Link>
+          <h1 className="text-xl font-semibold mt-6">Create your account</h1>
+          <p className="text-text-secondary text-sm mt-1">Start discovering great movies</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-lg px-4 py-3">
+              {error}
+            </div>
+          )}
+
+          <Input
+            label="Full name"
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            placeholder="Jane Doe"
+            error={fieldErrors.name}
+            autoComplete="name"
+            required
+          />
+
+          <Input
+            label="Email"
+            type="email"
+            name="email"
+            value={form.email}
+            onChange={handleChange}
+            placeholder="you@example.com"
+            error={fieldErrors.email}
+            autoComplete="email"
+            required
+          />
+
+          <Input
+            label="Password"
+            type="password"
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+            placeholder="Min. 8 characters"
+            error={fieldErrors.password}
+            autoComplete="new-password"
+            required
+          />
+
+          <Input
+            label="Confirm password"
+            type="password"
+            name="confirm"
+            value={form.confirm}
+            onChange={handleChange}
+            placeholder="••••••••"
+            error={fieldErrors.confirm}
+            autoComplete="new-password"
+            required
+          />
+
+          <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+            Create account
+          </Button>
+        </form>
+
+        <p className="text-center text-sm text-text-secondary">
+          Already have an account?{' '}
+          <Link to="/login" className="text-white hover:text-brand font-medium transition-colors">
+            Sign in
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/features/favorites/favoritesStore.js
+========================================
+import { create } from 'zustand';
+import { favoritesService } from '@/services/favoritesService';
+import { getToken } from '@/services/tokenStore';
+
+// Use tokenStore instead of importing authStore — avoids a circular dependency.
+// Presence of a token is equivalent to isAuthenticated for this store's purposes.
+const isAuthenticated = () => !!getToken();
+
+const LS_KEY = 'cm_favorites_local';
+
+const loadFromLocalStorage = () => {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) ?? '[]');
+  } catch {
+    return [];
+  }
+};
+
+const saveToLocalStorage = (favorites) => {
+  localStorage.setItem(LS_KEY, JSON.stringify(favorites));
+};
+
+export const useFavoritesStore = create((set, get) => ({
+  favorites: [],
+  isLoading: false,
+  synced: false, // true once backend has been fetched
+
+  isFavorite: (tmdbId) =>
+    get().favorites.some(f => f.tmdbId === Number(tmdbId)),
+
+  init: async () => {
+    const authenticated = isAuthenticated();
+
+    if (authenticated) {
+      set({ isLoading: true });
+      try {
+        const favorites = await favoritesService.getAll();
+        set({ favorites, isLoading: false, synced: true });
+      } catch {
+        // Fallback: merge local storage
+        set({ favorites: loadFromLocalStorage(), isLoading: false });
+      }
+    } else {
+      set({ favorites: loadFromLocalStorage(), synced: false });
+    }
+  },
+
+  add: async (movie) => {
+    const authenticated = isAuthenticated();
+    const movieData = {
+      tmdbId: Number(movie.tmdbId),
+      title: movie.title,
+      posterPath: movie.posterPath,
+      rating: movie.rating,
+    };
+
+    // Optimistic update
+    set(state => ({ favorites: [...state.favorites, { ...movieData, addedAt: new Date().toISOString() }] }));
+
+    if (authenticated) {
+      try {
+        const updated = await favoritesService.add(movieData);
+        set({ favorites: updated });
+      } catch {
+        // Rollback
+        set(state => ({ favorites: state.favorites.filter(f => f.tmdbId !== movieData.tmdbId) }));
+      }
+    } else {
+      saveToLocalStorage(get().favorites);
+    }
+  },
+
+  remove: async (tmdbId) => {
+    const authenticated = isAuthenticated();
+    const prev = get().favorites;
+
+    // Optimistic update
+    set(state => ({ favorites: state.favorites.filter(f => f.tmdbId !== Number(tmdbId)) }));
+
+    if (authenticated) {
+      try {
+        const updated = await favoritesService.remove(tmdbId);
+        set({ favorites: updated });
+      } catch {
+        set({ favorites: prev }); // rollback
+      }
+    } else {
+      saveToLocalStorage(get().favorites);
+    }
+  },
+
+  reset: () => set({ favorites: [], synced: false }),
+}));
+
+
+========================================
+FILE: frontend/src/features/favorites/FavoritesPage.jsx
+========================================
+import { useFavoritesStore } from './favoritesStore';
+import { Link } from 'react-router-dom';
+import MovieGrid from '@/features/movies/MovieGrid';
+import Button from '@/components/ui/Button';
+
+export default function FavoritesPage() {
+  const { favorites, isLoading } = useFavoritesStore();
+
+  // Normalize favorites to the shape MovieCard expects
+  const movies = favorites.map(f => ({
+    tmdbId: f.tmdbId,
+    title: f.title,
+    posterPath: f.posterPath,
+    rating: f.rating,
+  }));
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-extrabold">My Favorites</h1>
+          {!isLoading && (
+            <p className="text-text-secondary mt-1">
+              {favorites.length} {favorites.length === 1 ? 'movie' : 'movies'} saved
+            </p>
+          )}
+        </div>
+
+        {favorites.length >= 2 && (
+          <Link to="/recommendations">
+            <Button>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Get Recommendations
+            </Button>
+          </Link>
+        )}
+      </div>
+
+      <MovieGrid
+        movies={movies}
+        isLoading={isLoading}
+        emptyMessage="No favorites yet — start adding movies you love."
+      />
+
+      {!isLoading && favorites.length === 0 && (
+        <div className="mt-8 text-center">
+          <Link to="/">
+            <Button variant="secondary">Browse Movies</Button>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/features/home/SearchBar.jsx
+========================================
+import { useRef, useEffect } from 'react';
+
+export default function SearchBar({ query, onChange, onClear, placeholder = 'Search movies...', autoFocus = false }) {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
+
+  return (
+    <div className="relative w-full max-w-2xl mx-auto">
+      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+        <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+      <input
+        ref={inputRef}
+        type="search"
+        value={query}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="
+          w-full pl-12 pr-12 py-4 rounded-2xl text-base
+          bg-surface-overlay/80 border border-surface-border
+          text-text-primary placeholder:text-text-muted
+          focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30
+          backdrop-blur-sm transition-all duration-200
+        "
+      />
+      {query && (
+        <button
+          onClick={onClear}
+          className="absolute inset-y-0 right-4 flex items-center text-text-muted hover:text-white transition-colors"
+          aria-label="Clear search"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/features/home/HomePage.jsx
+========================================
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { movieService } from '@/services/movieService';
+import { useMovieSearch } from '@/hooks/useMovieSearch';
+import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import SearchBar from './SearchBar';
+import MovieGrid from '@/features/movies/MovieGrid';
+import Button from '@/components/ui/Button';
+
+const BACKDROP_BASE = 'https://image.tmdb.org/t/p/w1280';
+
+export default function HomePage() {
+  const [trending, setTrending] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [heroMovie, setHeroMovie] = useState(null);
+
+  const { query, setQuery, results, isLoading: searchLoading, clearSearch } = useMovieSearch();
+  const isSearching = query.trim().length > 0;
+
+  useEffect(() => {
+    movieService.getTrending()
+      .then(data => {
+        const movies = data.results;
+        setTrending(movies);
+        const eligible = movies.find(m => m.backdropUrl);
+        setHeroMovie(eligible || movies[0] || null);
+      })
+      .catch(console.error)
+      .finally(() => setTrendingLoading(false));
+  }, []);
+
+  return (
+    <div>
+      {/* Hero — hidden when searching */}
+      {!isSearching && heroMovie && (
+        <div className="relative h-[60vw] max-h-[600px] min-h-[320px]">
+          <img
+            src={heroMovie.backdropUrl}
+            alt={heroMovie.title}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent" />
+          <div className="absolute inset-0 bg-hero-gradient" />
+
+          {/* Hero content */}
+          <div className="absolute inset-0 flex flex-col justify-end pb-12 px-4 sm:px-8 max-w-7xl mx-auto">
+            <h1 className="text-4xl sm:text-6xl font-extrabold text-white mb-2 max-w-lg leading-tight">
+              {heroMovie.title}
+            </h1>
+            <p className="text-text-secondary max-w-md mb-6 line-clamp-2 hidden sm:block">
+              {heroMovie.overview}
+            </p>
+            <div className="flex gap-3">
+              <Link to={`/movie/${heroMovie.tmdbId}`}>
+                <Button size="lg">View Details</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search + content area */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+        {/* Search bar */}
+        <div className={isSearching ? 'pt-0' : '-mt-10 relative z-10'}>
+          <SearchBar
+            query={query}
+            onChange={setQuery}
+            onClear={clearSearch}
+            placeholder="Search for movies, directors, genres..."
+          />
+        </div>
+
+        {/* Search results */}
+        {isSearching ? (
+          <section>
+            <h2 className="text-lg font-semibold text-text-secondary mb-4">
+              {searchLoading ? 'Searching...' : `Results for "${query}"`}
+            </h2>
+            <MovieGrid
+              movies={results}
+              isLoading={searchLoading}
+              emptyMessage={`No results for "${query}"`}
+            />
+          </section>
+        ) : (
+          <>
+            {/* Trending */}
+            <section>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">Trending This Week</h2>
+              </div>
+              <MovieGrid movies={trending} isLoading={trendingLoading} />
+            </section>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/features/movies/MovieCard.jsx
+========================================
+import { Link } from 'react-router-dom';
+import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import StarRating from '@/components/ui/StarRating';
+
+const IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
+const FALLBACK_IMAGE = '/placeholder-poster.svg';
+
+export default function MovieCard({ movie, showScore = false }) {
+  const { isFavorite, add, remove } = useFavoritesStore();
+  const favorited = isFavorite(movie.tmdbId);
+  const posterSrc = movie.posterPath ? `${IMAGE_BASE}${movie.posterPath}` : FALLBACK_IMAGE;
+
+  const toggleFavorite = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    favorited ? remove(movie.tmdbId) : add(movie);
+  };
+
+  return (
+    <Link
+      to={`/movie/${movie.tmdbId}`}
+      className="group relative block rounded-xl overflow-hidden bg-surface-card border border-surface-border
+                 hover:border-surface-overlay hover:scale-[1.02] hover:shadow-2xl
+                 transition-all duration-300 animate-fade-in"
+    >
+      {/* Poster */}
+      <div className="aspect-[2/3] overflow-hidden bg-surface-overlay">
+        <img
+          src={posterSrc}
+          alt={movie.title}
+          loading="lazy"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
+        />
+      </div>
+
+      {/* Gradient overlay + info */}
+      <div className="absolute inset-0 bg-card-gradient opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+      {/* Favorite button */}
+      <button
+        onClick={toggleFavorite}
+        aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+        className={`
+          absolute top-2 right-2 p-2 rounded-full backdrop-blur-sm transition-all duration-200
+          ${favorited
+            ? 'bg-brand text-white'
+            : 'bg-black/50 text-text-secondary hover:text-white hover:bg-black/70'
+          }
+        `}
+      >
+        <svg className="w-4 h-4" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+          />
+        </svg>
+      </button>
+
+      {/* Score badge */}
+      {showScore && movie.score != null && (
+        <div className="absolute top-2 left-2 bg-brand/90 text-white text-xs font-bold px-2 py-1 rounded-md backdrop-blur-sm">
+          {movie.score.toFixed(1)}
+        </div>
+      )}
+
+      {/* Info */}
+      <div className="p-3">
+        <h3 className="font-semibold text-sm text-text-primary line-clamp-2 leading-tight mb-1.5">
+          {movie.title}
+        </h3>
+        <div className="flex items-center justify-between">
+          <StarRating rating={movie.rating} />
+          {movie.releaseDate && (
+            <span className="text-xs text-text-muted">
+              {new Date(movie.releaseDate).getFullYear()}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+
+========================================
+FILE: frontend/src/features/movies/MovieGrid.jsx
+========================================
+import MovieCard from './MovieCard';
+import Spinner from '@/components/ui/Spinner';
+
+export default function MovieGrid({
+  movies = [],
+  isLoading = false,
+  error = null,
+  emptyMessage = 'No movies found.',
+  showScore = false,
+}) {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div key={i} className="rounded-xl overflow-hidden">
+            <div className="aspect-[2/3] skeleton" />
+            <div className="p-3 space-y-2 bg-surface-card">
+              <div className="skeleton h-4 rounded w-3/4" />
+              <div className="skeleton h-3 rounded w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <p className="text-text-secondary mb-2">Something went wrong</p>
+        <p className="text-sm text-text-muted">{error}</p>
+      </div>
+    );
+  }
+
+  if (!movies.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-text-secondary">{emptyMessage}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {movies.map(movie => (
+        <MovieCard key={movie.tmdbId} movie={movie} showScore={showScore} />
+      ))}
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/features/movies/MovieDetailPage.jsx
+========================================
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { movieService } from '@/services/movieService';
+import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import MovieGrid from './MovieGrid';
+import StarRating from '@/components/ui/StarRating';
+import Button from '@/components/ui/Button';
+import Spinner from '@/components/ui/Spinner';
+
+const BACKDROP_BASE = 'https://image.tmdb.org/t/p/w1280';
+const POSTER_BASE = 'https://image.tmdb.org/t/p/w500';
+
+export default function MovieDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { isFavorite, add, remove } = useFavoritesStore();
+
+  const [movie, setMovie] = useState(null);
+  const [similar, setSimilar] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const favorited = movie ? isFavorite(movie.tmdbId) : false;
+
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [details, similarData] = await Promise.all([
+          movieService.getDetails(id),
+          movieService.getSimilar(id),
+        ]);
+        setMovie(details);
+        setSimilar(similarData.results.slice(0, 10));
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [id]);
+
+  const toggleFavorite = () => {
+    favorited ? remove(movie.tmdbId) : add(movie);
+  };
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Spinner size="lg" /></div>;
+  if (error) return <div className="min-h-screen flex items-center justify-center text-text-secondary">{error}</div>;
+  if (!movie) return null;
+
+  return (
+    <div className="min-h-screen">
+      {/* Backdrop hero */}
+      <div className="relative h-[60vw] max-h-[500px] min-h-[280px]">
+        {movie.backdropUrl && (
+          <img
+            src={movie.backdropUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-surface/80 to-transparent" />
+
+        {/* Back button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute top-20 left-4 sm:left-8 flex items-center gap-2 text-text-secondary hover:text-white transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="text-sm font-medium">Back</span>
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-32 relative z-10 pb-16">
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Poster */}
+          <div className="flex-shrink-0 mx-auto md:mx-0">
+            <img
+              src={movie.posterUrl || `${POSTER_BASE}${movie.posterPath}`}
+              alt={movie.title}
+              className="w-40 sm:w-56 rounded-xl shadow-2xl"
+            />
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 space-y-4">
+            <div>
+              {movie.tagline && (
+                <p className="text-brand text-sm font-medium mb-1 italic">{movie.tagline}</p>
+              )}
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-white">{movie.title}</h1>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary">
+              <StarRating rating={movie.rating} className="!text-sm" />
+              {movie.releaseDate && <span>{new Date(movie.releaseDate).getFullYear()}</span>}
+              {movie.runtime && <span>{movie.runtime} min</span>}
+              {movie.director && <span>Dir. {movie.director}</span>}
+            </div>
+
+            {movie.genres?.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {movie.genres.map(g => (
+                  <span key={g.id} className="px-3 py-1 rounded-full bg-surface-overlay text-xs text-text-secondary border border-surface-border">
+                    {g.name}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <p className="text-text-secondary leading-relaxed max-w-2xl">{movie.overview}</p>
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Button onClick={toggleFavorite} variant={favorited ? 'secondary' : 'primary'} size="lg">
+                <svg className="w-5 h-5" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                {favorited ? 'In Favorites' : 'Add to Favorites'}
+              </Button>
+
+              {movie.trailerKey && (
+                <a
+                  href={`https://www.youtube.com/watch?v=${movie.trailerKey}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" size="lg">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Watch Trailer
+                  </Button>
+                </a>
+              )}
+            </div>
+
+            {/* Cast */}
+            {movie.cast?.length > 0 && (
+              <div className="pt-4">
+                <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3">Cast</h3>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {movie.cast.slice(0, 8).map(actor => (
+                    <div key={actor.id} className="flex-shrink-0 text-center w-16">
+                      <div className="w-14 h-14 mx-auto rounded-full overflow-hidden bg-surface-overlay mb-1">
+                        {actor.profileUrl
+                          ? <img src={actor.profileUrl} alt={actor.name} className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">{actor.name[0]}</div>
+                        }
+                      </div>
+                      <p className="text-xs text-text-secondary line-clamp-2 leading-tight">{actor.name}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Similar movies */}
+        {similar.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-xl font-bold mb-6">More like this</h2>
+            <MovieGrid movies={similar} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+========================================
+FILE: frontend/src/features/recommendations/RecommendationsPage.jsx
+========================================
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { movieService } from '@/services/movieService';
+import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import MovieGrid from '@/features/movies/MovieGrid';
+import Button from '@/components/ui/Button';
+
+export default function RecommendationsPage() {
+  const { favorites } = useFavoritesStore();
+  const [movies, setMovies] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastGenerated, setLastGenerated] = useState(null);
+
+  const hasEnoughFavorites = favorites.length >= 2;
+
+  const fetchRecommendations = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await movieService.getRecommendations();
+      setMovies(data.results);
+      setLastGenerated(new Date());
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (hasEnoughFavorites) fetchRecommendations();
+  }, []); // eslint-disable-line
+
+  if (!hasEnoughFavorites) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+        <div className="max-w-md mx-auto space-y-4">
+          <div className="text-5xl mb-4">🎬</div>
+          <h1 className="text-2xl font-bold">Add more favorites first</h1>
+          <p className="text-text-secondary">
+            You need at least 2 favorite movies for us to generate personalized recommendations.
+            You currently have {favorites.length}.
+          </p>
+          <Link to="/">
+            <Button className="mt-4">Browse Movies</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-extrabold">Recommended for You</h1>
+          <p className="text-text-secondary mt-1">
+            Based on {favorites.length} favorite{favorites.length !== 1 ? 's' : ''}
+            {lastGenerated && (
+              <span className="text-text-muted">
+                {' '}· Updated {lastGenerated.toLocaleTimeString()}
+              </span>
+            )}
+          </p>
+        </div>
+
+        <Button
+          onClick={fetchRecommendations}
+          isLoading={isLoading}
+          variant="secondary"
+          size="sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          Refresh
+        </Button>
+      </div>
+
+      {/* Scoring explanation */}
+      {!isLoading && movies.length > 0 && (
+        <div className="bg-surface-card border border-surface-border rounded-xl p-4 mb-8 text-sm text-text-secondary">
+          <span className="text-white font-medium">How scores work: </span>
+          Recommendations are ranked by how many of your favorites suggested them (×3), their TMDB rating (×2),
+          and overall popularity. Higher score = better match.
+        </div>
+      )}
+
+      <MovieGrid
+        movies={movies}
+        isLoading={isLoading}
+        error={error}
+        emptyMessage="No recommendations found. Try adding more diverse favorites."
+        showScore
+      />
+    </div>
+  );
+}
+
