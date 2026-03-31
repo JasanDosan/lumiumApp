@@ -100,6 +100,16 @@ export default function SearchPage() {
     
   });
 
+  //console
+
+ // console.log({
+ //   page: state.page,
+ //   totalPages: state.totalPages,
+ //   hasMore: state.page < state.totalPages,
+//  });
+
+
+  
   const sentinelRef = useRef(null);
   const inputRef    = useRef(null);
 

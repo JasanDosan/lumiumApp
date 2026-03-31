@@ -74,11 +74,11 @@ export default function GameSelector({ selectedId, onGameChange }) {
           <select
             value={selectedId}
             onChange={e => handleChange(e.target.value)}
-            className="text-[13px] border border-line rounded-full pl-3 pr-7 py-1.5 bg-white
-                       text-ink-mid focus:outline-none focus:border-ink/30 cursor-pointer
+            className="text-[13px] border border-line rounded-full pl-3 pr-7 py-1.5 bg-surface
+                       text-ink-mid focus:outline-none focus:border-line/60 cursor-pointer
                        appearance-none"
             style={{
-              backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a0a0a0'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E\")",
+              backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2355555a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E\")",
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'right 0.6rem center',
               backgroundSize: '1rem',

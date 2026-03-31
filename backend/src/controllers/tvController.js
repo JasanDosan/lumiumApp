@@ -19,3 +19,18 @@ export const getPopular = async (req, res, next) => {
     next(error);
   }
 };
+
+export const discoverTV = async (req, res, next) => {
+  try {
+    const { page = 1, genres, sort_by, rating_gte } = req.query;
+    const result = await tmdb.discoverTV({
+      page: Number(page),
+      genres: genres ? genres.split(',').map(Number) : undefined,
+      sort_by,
+      rating_gte: rating_gte ? Number(rating_gte) : undefined,
+    });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};

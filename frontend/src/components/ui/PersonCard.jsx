@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 export default function PersonCard({ person }) {
   return (
     <Link to={`/person/${person.id}`} className="group block shrink-0 w-28">
-      <div className="relative aspect-[2/3] overflow-hidden rounded-md bg-neutral-100">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-md bg-surface-high">
         {person.profileUrl ? (
           <img
             src={person.profileUrl}

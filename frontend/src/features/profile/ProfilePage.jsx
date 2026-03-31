@@ -91,7 +91,7 @@ export default function ProfilePage() {
         {/* ── Stats ──────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-12">
           {/* Total films */}
-          <div className="bg-white border border-line rounded-2xl p-5">
+          <div className="bg-surface border border-line rounded-2xl p-5">
             <p className="section-label mb-2">Collection</p>
             <p className="text-3xl font-semibold text-ink tabular-nums">{favorites.length}</p>
             <p className="text-xs text-ink-light mt-0.5">film{favorites.length !== 1 ? 's' : ''} saved</p>
@@ -99,13 +99,13 @@ export default function ProfilePage() {
 
           {/* Top genre */}
           {topGenres[0] ? (
-            <div className="bg-white border border-line rounded-2xl p-5">
+            <div className="bg-surface border border-line rounded-2xl p-5">
               <p className="section-label mb-2">Top genre</p>
               <p className="text-xl font-semibold text-ink leading-tight truncate">{topGenres[0].name}</p>
               <p className="text-xs text-ink-light mt-0.5">{topGenres[0].count} film{topGenres[0].count !== 1 ? 's' : ''}</p>
             </div>
           ) : (
-            <div className="bg-white border border-line rounded-2xl p-5">
+            <div className="bg-surface border border-line rounded-2xl p-5">
               <p className="section-label mb-2">Top genre</p>
               <p className="text-sm text-ink-light mt-1">Add films to see</p>
             </div>
@@ -113,20 +113,20 @@ export default function ProfilePage() {
 
           {/* Favourite era */}
           {topDecade ? (
-            <div className="bg-white border border-line rounded-2xl p-5">
+            <div className="bg-surface border border-line rounded-2xl p-5">
               <p className="section-label mb-2">Favourite era</p>
               <p className="text-3xl font-semibold text-ink tabular-nums">{topDecade.decade}s</p>
               <p className="text-xs text-ink-light mt-0.5">{topDecade.count} film{topDecade.count !== 1 ? 's' : ''}</p>
             </div>
           ) : (
-            <div className="bg-white border border-line rounded-2xl p-5">
+            <div className="bg-surface border border-line rounded-2xl p-5">
               <p className="section-label mb-2">Favourite era</p>
               <p className="text-sm text-ink-light mt-1">Add films to see</p>
             </div>
           )}
 
           {/* Recommendations available */}
-          <div className="bg-white border border-line rounded-2xl p-5">
+          <div className="bg-surface border border-line rounded-2xl p-5">
             <p className="section-label mb-2">Picks ready</p>
             {favorites.length >= 2 ? (
               <>
@@ -179,9 +179,9 @@ export default function ProfilePage() {
                       <span className="w-4 text-xs text-ink-light tabular-nums">#{i + 1}</span>
                       <div className="flex-1 flex items-center gap-3">
                         <span className="text-sm font-medium text-ink w-28 truncate">{g.name}</span>
-                        <div className="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                        <div className="flex-1 h-1.5 bg-surface-high rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-ink/20 rounded-full transition-all duration-500"
+                            className="h-full bg-accent/50 rounded-full transition-all duration-500"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -204,7 +204,7 @@ export default function ProfilePage() {
               <div className="flex flex-wrap gap-2">
                 {decades.map(d => (
                   <div key={d.decade}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-line rounded-full">
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-surface border border-line rounded-full">
                     <span className="text-sm font-medium text-ink">{d.decade}s</span>
                     <span className="text-xs text-ink-light">{d.count}</span>
                   </div>
@@ -221,7 +221,7 @@ export default function ProfilePage() {
               </p>
               <Link
                 to="/"
-                className="text-sm bg-ink text-white px-5 py-2.5 rounded-full font-medium hover:bg-ink/80 transition-colors"
+                className="text-sm bg-accent text-white px-5 py-2.5 rounded-full font-medium hover:bg-accent-hover transition-colors"
               >
                 Start discovering
               </Link>

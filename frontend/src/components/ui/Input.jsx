@@ -16,9 +16,9 @@ export default function Input({
       <input
         className={`
           w-full px-4 py-3 rounded-xl text-sm
-          bg-white border border-line
-          text-ink placeholder:text-ink-faint
-          focus:outline-none focus:border-ink/40 focus:ring-1 focus:ring-ink/20
+          bg-surface border border-line
+          text-ink placeholder:text-ink-light
+          focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20
           transition-all duration-150
           disabled:opacity-50
           ${error ? 'border-red focus:border-red focus:ring-red/20' : ''}

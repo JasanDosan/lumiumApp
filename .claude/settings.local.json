@@ -6,7 +6,8 @@
       "Bash(grep -E \"\\\\.\\(js|jsx\\)$\")",
       "Bash(curl -s http://localhost:5000/api/movies/trending)",
       "Bash(curl -s http://localhost:5000/api/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"test@test.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"test1234\"\"\"\"}')",
-      "Bash(curl -s \"http://localhost:5000/api/movies/trending\" -H \"Accept: application/json\")"
+      "Bash(curl -s \"http://localhost:5000/api/movies/trending\" -H \"Accept: application/json\")",
+      "Bash(node -e \":*)"
     ]
   }
 }

@@ -4,17 +4,17 @@ import { movieService } from '@/services/movieService';
 import { tvService } from '@/services/tvService';
 import { useAuthStore } from '@/features/auth/authStore';
 import { useFavoritesStore } from '@/features/favorites/favoritesStore';
-import { GAME_CATALOG } from '@/data/gameMovieTags';
+import { GAME_CATALOG, getRelatedGames, translateMetaToTMDB } from '@/data/gameMovieTags';
 import { useDebounce } from '@/hooks/useDebounce';
-import HeroMovie from './HeroMovie';
+import GameHero from '@/features/games/GameHero';
+import GameRow from '@/features/games/GameRow';
 import FilterBar from '@/features/discover/FilterBar';
-import GameSelector from '@/features/discover/GameSelector';
 import ContentCarousel from '@/features/discover/ContentCarousel';
 import MovieCard from '@/features/movies/MovieCard';
 import MovieRow from '@/features/movies/MovieRow';
 import SectionWrapper from '@/components/ui/SectionWrapper';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const LS_GAME_KEY = 'pm_selected_game';
 
@@ -37,26 +37,6 @@ function parseSearchParams(sp) {
   };
 }
 
-/**
- * Returns up to `count` games similar to `selectedId`,
- * ranked by overlapping theme + mood tags.
- */
-function getRelatedGames(selectedId, count = 10) {
-  const selected = GAME_CATALOG.find(g => g.id === selectedId);
-  if (!selected) return GAME_CATALOG.slice(0, count);
-  const themes = new Set(selected.meta.theme);
-  const moods  = new Set(selected.meta.mood);
-  return GAME_CATALOG
-    .filter(g => g.id !== selectedId)
-    .map(g => ({
-      ...g,
-      _score: g.meta.theme.filter(t => themes.has(t)).length * 2
-             + g.meta.mood.filter(m => moods.has(m)).length,
-    }))
-    .sort((a, b) => b._score - a._score)
-    .slice(0, count);
-}
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function GridSkeleton({ count = 12 }) {
@@ -75,22 +55,72 @@ function GridSkeleton({ count = 12 }) {
   );
 }
 
-function GameChip({ game, onSelect }) {
+/** Game movie section: shows movies from the currently selected game */
+function GameMovieSection({ game, selectedGameId, onGameChange }) {
+  const [movies, setMovies]     = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const fetchedFor              = useRef(null);
+
+  useEffect(() => {
+    if (!game || fetchedFor.current === game.id) return;
+    fetchedFor.current = game.id;
+
+    let cancelled = false;
+    setLoading(true);
+    const filters = translateMetaToTMDB(game.meta);
+
+    movieService.discover({ ...filters, page: 1 })
+      .then(data => {
+        if (!cancelled) setMovies((data.results || []).slice(0, 16));
+      })
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [game]);
+
+  const relatedGames = useMemo(
+    () => getRelatedGames(selectedGameId, 12),
+    [selectedGameId],
+  );
+
+  if (!game) return null;
+
   return (
-    <button
-      onClick={() => onSelect(game.id)}
-      className="flex-shrink-0 flex flex-col items-start gap-1 w-32 sm:w-36 p-3
-                 bg-white border border-line rounded-lg text-left
-                 hover:border-ink/25 hover:shadow-sm transition-all duration-200"
-    >
-      <span className="text-2xl leading-none">{game.emoji}</span>
-      <span className="text-[12px] font-medium text-ink leading-snug line-clamp-1 mt-0.5">
-        {game.name}
-      </span>
-      <span className="text-[11px] text-ink-light leading-snug line-clamp-2">
-        {game.tagline}
-      </span>
-    </button>
+    <section className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <p className="section-label mb-1">Watch after playing</p>
+          <h2 className="text-lg font-semibold text-ink">
+            {game.emoji} {game.name}
+          </h2>
+          <p className="text-xs text-ink-mid mt-0.5 italic">{game.tagline}</p>
+        </div>
+        <Link
+          to={`/game/${game.id}`}
+          className="text-xs text-ink-light hover:text-ink transition-colors shrink-0"
+        >
+          Game details →
+        </Link>
+      </div>
+
+      {/* Movie row */}
+      <MovieRow movies={movies} isLoading={loading} cardWidth="w-32 sm:w-36" />
+
+      {/* Related games row */}
+      <div>
+        <p className="text-[11px] text-ink-light mb-2.5 uppercase tracking-widest font-semibold">
+          Games with a similar vibe
+        </p>
+        <GameRow
+          games={relatedGames}
+          selectedId={selectedGameId}
+          onSelect={onGameChange}
+          cardWidth="w-36 sm:w-44"
+        />
+      </div>
+    </section>
   );
 }
 
@@ -109,15 +139,20 @@ export default function HomePage() {
     setSelectedGameId(id);
   }, []);
 
-  // ── Carousels data ─────────────────────────────────────────────────────────
-  const [trending, setTrending]                 = useState([]);
-  const [trendingLoading, setTrendingLoading]   = useState(true);
-  const [trendingTV, setTrendingTV]             = useState([]);
-  const [trendingTVLoading, setTrendingTVLoading] = useState(true);
-  const [personalRecs, setPersonalRecs]         = useState([]);
+  const selectedGame = useMemo(
+    () => GAME_CATALOG.find(g => g.id === selectedGameId) ?? GAME_CATALOG[0],
+    [selectedGameId],
+  );
+
+  // ── Carousel data ──────────────────────────────────────────────────────────
+  const [trending, setTrending]                       = useState([]);
+  const [trendingLoading, setTrendingLoading]         = useState(true);
+  const [trendingTV, setTrendingTV]                   = useState([]);
+  const [trendingTVLoading, setTrendingTVLoading]     = useState(true);
+  const [personalRecs, setPersonalRecs]               = useState([]);
   const [personalRecsLoading, setPersonalRecsLoading] = useState(false);
-  const [similarSections, setSimilarSections]   = useState([]);
-  const [allGenres, setAllGenres]               = useState([]);
+  const [similarSections, setSimilarSections]         = useState([]);
+  const [allGenres, setAllGenres]                     = useState([]);
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filters, setFilters] = useState(() => parseSearchParams(searchParams));
@@ -145,17 +180,10 @@ export default function HomePage() {
 
   const gridHasMore = gridPage < gridTotalPages;
 
-  // Hero: top personal rec when authed, else first trending
-  const heroMovie = isAuthenticated && personalRecs.length > 0
-    ? personalRecs[0]
-    : trending[0] ?? null;
-
   const favMovies = useMemo(() => favorites.map(f => ({
     tmdbId: f.tmdbId, title: f.title, posterPath: f.posterPath,
     rating: f.rating, releaseDate: f.releaseDate, genreIds: f.genreIds,
   })), [favorites]);
-
-  const relatedGames = useMemo(() => getRelatedGames(selectedGameId, 10), [selectedGameId]);
 
   // ── Load carousels once ────────────────────────────────────────────────────
   useEffect(() => {
@@ -177,7 +205,7 @@ export default function HomePage() {
       .finally(() => setTrendingTVLoading(false));
   }, []);
 
-  // ── Personalised recs (re-runs on auth change) ─────────────────────────────
+  // ── Personalised recs ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated) { setPersonalRecs([]); return; }
     let cancelled = false;
@@ -189,7 +217,7 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [isAuthenticated]);
 
-  // ── "Because you liked X" — sequential to respect TMDB rate limit ─────────
+  // ── "Because you liked X" ─────────────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated || favorites.length === 0) { setSimilarSections([]); return; }
 
@@ -218,7 +246,7 @@ export default function HomePage() {
     loadNext(0);
   }, [isAuthenticated, favorites.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Reset grid when debounced filters change ───────────────────────────────
+  // ── Reset grid on filter change ────────────────────────────────────────────
   useEffect(() => {
     setGridPage(1);
     setGridItems([]);
@@ -226,7 +254,7 @@ export default function HomePage() {
     setGridTotalPages(0);
   }, [debouncedFilters]);
 
-  // ── Fetch grid — always active, content driven by filters ─────────────────
+  // ── Fetch grid ────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     setGridLoading(true);
@@ -261,7 +289,7 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [debouncedFilters, gridPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── IntersectionObserver: load next page ──────────────────────────────────
+  // ── IntersectionObserver ──────────────────────────────────────────────────
   useEffect(() => {
     if (gridLoading || !gridHasMore) return;
     const el = gridSentinelRef.current;
@@ -274,12 +302,11 @@ export default function HomePage() {
     return () => obs.disconnect();
   }, [gridLoading, gridHasMore]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleFiltersChange = useCallback((updater) => {
     setFilters(prev => (typeof updater === 'function' ? updater(prev) : updater));
   }, []);
 
-  // ── Grid header ───────────────────────────────────────────────────────────
+  // ── Grid header text ──────────────────────────────────────────────────────
   const gridLabel    = hasActiveFilters ? 'Filtered results' : 'Discover';
   const gridTitle    = filters.search
     ? `"${filters.search}"`
@@ -297,9 +324,9 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-canvas">
 
-      {/* ── Hero (hides when filters active, gives space to results) ──────── */}
-      {!hasActiveFilters && heroMovie && !trendingLoading && (
-        <HeroMovie movie={heroMovie} />
+      {/* ── 1. Game Hero ──────────────────────────────────────────────────── */}
+      {!hasActiveFilters && (
+        <GameHero game={selectedGame} />
       )}
 
       {/* ── FilterBar (sticky below fixed header) ─────────────────────────── */}
@@ -308,15 +335,36 @@ export default function HomePage() {
       {/* ── Feed ──────────────────────────────────────────────────────────── */}
       <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-10 space-y-14">
 
-        {/* ── Greeting ──────────────────────────────────────────────────── */}
-        {isAuthenticated && user && (
+        {/* ── Auth greeting ─────────────────────────────────────────────── */}
+        {isAuthenticated && user && !hasActiveFilters && (
           <p className="text-xl font-semibold text-ink -mb-6">
             Hey, {user.name?.split(' ')[0]}.
           </p>
         )}
 
-        {/* ── 1. Saved films (auth) ──────────────────────────────────────── */}
-        {isAuthenticated && favMovies.length > 0 && (
+        {/* ── 2. Games Library ──────────────────────────────────────────── */}
+        {!hasActiveFilters && (
+          <SectionWrapper label="Library" title="Browse Games">
+            <GameRow
+              games={GAME_CATALOG}
+              selectedId={selectedGameId}
+              onSelect={handleGameChange}
+              cardWidth="w-40 sm:w-48"
+            />
+          </SectionWrapper>
+        )}
+
+        {/* ── 3. Game → Movies ──────────────────────────────────────────── */}
+        {!hasActiveFilters && (
+          <GameMovieSection
+            game={selectedGame}
+            selectedGameId={selectedGameId}
+            onGameChange={handleGameChange}
+          />
+        )}
+
+        {/* ── 4. Saved collection (auth) ────────────────────────────────── */}
+        {isAuthenticated && favMovies.length > 0 && !hasActiveFilters && (
           <SectionWrapper
             label="Your collection"
             title={`${favorites.length} saved film${favorites.length !== 1 ? 's' : ''}`}
@@ -326,42 +374,24 @@ export default function HomePage() {
           </SectionWrapper>
         )}
 
-        {/* Prompt: add one more to unlock recs */}
-        {isAuthenticated && favorites.length === 1 && (
+        {isAuthenticated && favorites.length === 1 && !hasActiveFilters && (
           <p className="text-sm text-ink-light border-t border-line pt-6 -mt-8">
             Add one more film to unlock personalised recommendations.
           </p>
         )}
 
-        {/* ── 2. Tonight after playing… ──────────────────────────────────── */}
-        <GameSelector selectedId={selectedGameId} onGameChange={handleGameChange} />
+        {/* ── 5. Trending TV ───────────────────────────────────────────── */}
+        {!hasActiveFilters && (
+          <ContentCarousel
+            label="Series"
+            title="Trending on TV"
+            items={trendingTV}
+            isLoading={trendingTVLoading}
+          />
+        )}
 
-        {/* ── 3. Similar games ──────────────────────────────────────────── */}
-        <section>
-          <div className="mb-4">
-            <p className="section-label mb-1">Because you selected</p>
-            <h2 className="text-base font-bold text-ink">Games you might also like</h2>
-          </div>
-          <div
-            className="flex gap-3 overflow-x-auto pb-2"
-            style={{ scrollbarWidth: 'none' }}
-          >
-            {relatedGames.map(g => (
-              <GameChip key={g.id} game={g} onSelect={handleGameChange} />
-            ))}
-          </div>
-        </section>
-
-        {/* ── 4. Series — Trending TV ────────────────────────────────────── */}
-        <ContentCarousel
-          label="Series"
-          title="Trending on TV"
-          items={trendingTV}
-          isLoading={trendingTVLoading}
-        />
-
-        {/* ── 5. Recommended for you (auth-gated) ───────────────────────── */}
-        {(isAuthenticated || personalRecsLoading) && (
+        {/* ── 6. Recommended for you (auth) ────────────────────────────── */}
+        {!hasActiveFilters && (isAuthenticated || personalRecsLoading) && (
           <ContentCarousel
             label="For you"
             title="Recommended"
@@ -371,8 +401,8 @@ export default function HomePage() {
           />
         )}
 
-        {/* ── 6. Because you liked X ─────────────────────────────────────── */}
-        {similarSections.map(section => (
+        {/* ── 7. Because you liked X ───────────────────────────────────── */}
+        {!hasActiveFilters && similarSections.map(section => (
           <SectionWrapper
             key={section.favoriteId}
             label="Because you liked"
@@ -382,41 +412,42 @@ export default function HomePage() {
           </SectionWrapper>
         ))}
 
-        {/* ── 7. Trending this week ──────────────────────────────────────── */}
-        <ContentCarousel
-          label="This week"
-          title="Trending"
-          items={trending}
-          isLoading={trendingLoading}
-        />
+        {/* ── 8. Trending movies ───────────────────────────────────────── */}
+        {!hasActiveFilters && (
+          <ContentCarousel
+            label="This week"
+            title="Trending"
+            items={trending}
+            isLoading={trendingLoading}
+          />
+        )}
 
-        {/* ── Active filter pills ────────────────────────────────────────── */}
+        {/* ── Active filter pills ──────────────────────────────────────── */}
         {hasActiveFilters && (
           <div className="flex flex-wrap gap-1.5 -mt-8">
             {filters.genres?.map(id => {
               const g = allGenres.find(a => a.id === id);
               return g ? (
-                <span key={id} className="text-[11px] bg-ink text-white px-2.5 py-0.5 rounded-full">
+                <span key={id} className="text-[11px] bg-accent/20 text-accent px-2.5 py-0.5 rounded-full border border-accent/30">
                   {g.name}
                 </span>
               ) : null;
             })}
             {(filters.year_gte || filters.year_lte) && (
-              <span className="text-[11px] bg-neutral-100 text-ink-mid px-2.5 py-0.5 rounded-full border border-line">
+              <span className="text-[11px] bg-surface text-ink-mid px-2.5 py-0.5 rounded-full border border-line">
                 {filters.year_gte || '…'} – {filters.year_lte || 'now'}
               </span>
             )}
             {filters.rating_gte && (
-              <span className="text-[11px] bg-neutral-100 text-ink-mid px-2.5 py-0.5 rounded-full border border-line">
+              <span className="text-[11px] bg-surface text-ink-mid px-2.5 py-0.5 rounded-full border border-line">
                 ★ {filters.rating_gte}+
               </span>
             )}
           </div>
         )}
 
-        {/* ── 8. Main grid (always visible, infinite scroll) ─────────────── */}
+        {/* ── 9. Discover grid (always visible, infinite scroll) ────────── */}
         <section>
-          {/* Header */}
           <div className="mb-6">
             <p className="section-label mb-1">{gridLabel}</p>
             <h2 className="text-lg font-semibold text-ink">{gridTitle}</h2>
@@ -451,22 +482,21 @@ export default function HomePage() {
             </p>
           )}
 
-          {/* Sentinel for infinite scroll */}
           <div ref={gridSentinelRef} className="h-px mt-4" aria-hidden="true" />
         </section>
 
-        {/* ── Guest CTA ──────────────────────────────────────────────────── */}
+        {/* ── Guest CTA ─────────────────────────────────────────────────── */}
         {!isAuthenticated && (
           <div className="border-t border-line pt-8 flex items-center justify-between gap-6">
             <div>
               <p className="text-sm font-medium text-ink">Want personalised picks?</p>
-              <p className="text-xs text-ink-light mt-0.5">
+              <p className="text-xs text-ink-mid mt-0.5">
                 Create a free account and save films to your collection.
               </p>
             </div>
             <Link
               to="/register"
-              className="shrink-0 text-sm bg-ink text-white px-4 py-2 rounded-full font-medium hover:bg-ink/80 transition-colors"
+              className="shrink-0 text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-full font-medium transition-colors"
             >
               Get started
             </Link>

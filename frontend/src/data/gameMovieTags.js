@@ -5,11 +5,17 @@
  *   1. Each game defines a `meta` object describing its CONCEPT (theme, mood, pacing).
  *   2. translateMetaToTMDB() converts meta-tags → TMDB discover params.
  *
- * This decoupling means:
- *   - You can add new games without knowing any TMDB genre IDs.
- *   - You can tune the translation algorithm independently of the catalog.
- *   - Future: swap meta-tags for IGDB API data automatically.
+ * Additional fields per game:
+ *   image       — Steam CDN header image (460×215), null for non-Steam titles
+ *   price       — USD price (0 = free to play)
+ *   rating      — simulated user score out of 10
+ *   tags        — human-readable display tags (shown on cards / detail pages)
+ *   description — 1–2 sentence description for the detail page
  */
+
+// ── Steam header image helper ─────────────────────────────────────────────────
+const steam = (appId) =>
+  `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
 
 // ── TMDB genre reference ──────────────────────────────────────────────────────
 // 28 Action  | 12 Adventure | 16 Animation | 35 Comedy  | 80 Crime
@@ -18,60 +24,45 @@
 // 10752 War  | 37 Western
 
 // ── Theme tag → TMDB genre IDs ────────────────────────────────────────────────
-// Primary genre listed first; secondary (if any) listed second.
 const THEME_TO_GENRES = {
-  zombies:      [27, 53],    // Horror, Thriller
-  survival:     [53],        // Thriller
-  horror:       [27],        // Horror
-  sci_fi:       [878],       // Sci-Fi
-  space:        [878],       // Sci-Fi
-  war:          [10752, 28], // War, Action
-  crime:        [80],        // Crime
-  fantasy:      [14],        // Fantasy
-  mystery:      [9648],      // Mystery
-  western:      [37],        // Western
-  history:      [36],        // History
-  animation:    [16],        // Animation
-  stealth:      [53, 28],    // Thriller, Action
-  conspiracy:   [53, 80],    // Thriller, Crime
-  exploration:  [12],        // Adventure
-  politics:     [18, 53],    // Drama, Thriller
-  noir:         [80, 18],    // Crime, Drama
-  cyberpunk:    [878, 80],   // Sci-Fi, Crime
-  supernatural: [27, 14],    // Horror, Fantasy
-  dystopia:     [878, 53],   // Sci-Fi, Thriller
-  mythology:    [14, 12],    // Fantasy, Adventure
-  comedy:       [35],        // Comedy
-  drama:        [18],        // Drama
-  adventure:    [12],        // Adventure
-  action:       [28],        // Action
-  time_loop:    [9648, 878], // Mystery, Sci-Fi
-  narrative:    [18],        // Drama
+  zombies:      [27, 53],
+  survival:     [53],
+  horror:       [27],
+  sci_fi:       [878],
+  space:        [878],
+  war:          [10752, 28],
+  crime:        [80],
+  fantasy:      [14],
+  mystery:      [9648],
+  western:      [37],
+  history:      [36],
+  animation:    [16],
+  stealth:      [53, 28],
+  conspiracy:   [53, 80],
+  exploration:  [12],
+  politics:     [18, 53],
+  noir:         [80, 18],
+  cyberpunk:    [878, 80],
+  supernatural: [27, 14],
+  dystopia:     [878, 53],
+  mythology:    [14, 12],
+  comedy:       [35],
+  drama:        [18],
+  adventure:    [12],
+  action:       [28],
+  time_loop:    [9648, 878],
+  narrative:    [18],
 };
 
-// ── Mood tag sets used by translateMetaToTMDB ─────────────────────────────────
 const QUALITY_MOODS  = new Set(['tension', 'dark', 'bleak', 'melancholic', 'contemplative', 'wonder', 'realism', 'prestige', 'dark_humor']);
 const POPULAR_MOODS  = new Set(['epic', 'explosive', 'fun']);
 
-// ── translateMetaToTMDB ───────────────────────────────────────────────────────
-
 /**
  * Converts a game's meta-tags into TMDB discover parameters.
- *
- * Algorithm:
- *   1. Collects TMDB genre IDs from theme tags (primary genres first, then secondary).
- *      De-duplicates and caps at 3 genres.
- *   2. Determines sort_by: epic/fun/explosive → popularity.desc; otherwise vote_average.desc.
- *   3. Computes rating_gte floor based on mood intensity.
- *      `prestige` overrides to 7.5; explosive/fun caps at 5.5.
- *
- * @param {{ theme?: string[], mood?: string[], pacing?: string[] }} meta
- * @returns {{ genres: number[], sort_by: string, rating_gte: number }}
  */
 export function translateMetaToTMDB(meta) {
   const { theme = [], mood = [], pacing = [] } = meta;
 
-  // ── 1. Build genre list: primary genres first, then secondary ─────────────
   const primary   = [];
   const secondary = [];
   for (const t of theme) {
@@ -81,30 +72,17 @@ export function translateMetaToTMDB(meta) {
   }
   const genres = [...new Set([...primary, ...secondary])].slice(0, 3);
 
-  // ── 2. Determine sort_by ──────────────────────────────────────────────────
-  // "Popular" moods win if present (blockbuster intent overrides quality intent).
   const wantsPopular = mood.some(m => POPULAR_MOODS.has(m));
   const sort_by = wantsPopular ? 'popularity.desc' : 'vote_average.desc';
 
-  // ── 3. Determine rating_gte floor ─────────────────────────────────────────
   let rating_gte = 6.0;
-
-  if (mood.some(m => ['bleak', 'tension', 'dark'].includes(m))) {
-    rating_gte = Math.max(rating_gte, 6.5);
-  }
+  if (mood.some(m => ['bleak', 'tension', 'dark'].includes(m))) rating_gte = Math.max(rating_gte, 6.5);
   if (
     mood.some(m => ['realism', 'melancholic', 'contemplative', 'wonder'].includes(m)) ||
     pacing.some(p => ['slow', 'meditative'].includes(p))
-  ) {
-    rating_gte = Math.max(rating_gte, 7.0);
-  }
-  if (mood.includes('prestige')) {
-    rating_gte = Math.max(rating_gte, 7.5);
-  }
-  // High-energy moods → lower the floor to catch more blockbusters
-  if (mood.some(m => ['explosive', 'fun'].includes(m))) {
-    rating_gte = Math.min(rating_gte, 5.5);
-  }
+  ) rating_gte = Math.max(rating_gte, 7.0);
+  if (mood.includes('prestige')) rating_gte = Math.max(rating_gte, 7.5);
+  if (mood.some(m => ['explosive', 'fun'].includes(m))) rating_gte = Math.min(rating_gte, 5.5);
 
   return { genres, sort_by, rating_gte };
 }
@@ -118,6 +96,11 @@ export const GAME_CATALOG = [
     name: 'Project Zomboid',
     emoji: '🧟',
     tagline: 'Gritty survival in a world gone wrong',
+    image: steam(108600),
+    price: 19.99,
+    rating: 8.7,
+    tags: ['Survival', 'Zombies', 'Horror', 'Open World', 'Post-Apocalyptic'],
+    description: 'An open-world isometric zombie survival RPG set in the fictional Knox County. Loot, build, craft — and figure out exactly how you died.',
     meta: {
       theme: ['zombies', 'survival', 'horror'],
       mood:  ['tension', 'bleak', 'realism'],
@@ -126,9 +109,14 @@ export const GAME_CATALOG = [
   },
   {
     id: 'resident-evil',
-    name: 'Resident Evil',
+    name: 'Resident Evil 2',
     emoji: '🦠',
     tagline: 'Biological horror and desperate escapes',
+    image: steam(883710),
+    price: 29.99,
+    rating: 9.1,
+    tags: ['Horror', 'Zombies', 'Action', 'Story-Rich', 'Third-Person'],
+    description: 'Leon S. Kennedy and Claire Redfield attempt to escape Raccoon City as the undead overrun everything. One of gaming\'s finest survival horror experiences, fully remade.',
     meta: {
       theme: ['zombies', 'horror', 'action'],
       mood:  ['tension', 'dark', 'fun'],
@@ -137,9 +125,14 @@ export const GAME_CATALOG = [
   },
   {
     id: 'silent-hill',
-    name: 'Silent Hill',
+    name: 'Silent Hill 2',
     emoji: '🌫️',
     tagline: 'Psychological dread and fractured reality',
+    image: steam(2124490),
+    price: 59.99,
+    rating: 9.2,
+    tags: ['Horror', 'Psychological', 'Mystery', 'Atmospheric', 'Remake'],
+    description: 'James Sunderland arrives in Silent Hill after receiving a letter from his dead wife. A masterwork of psychological horror and unreliable narrative, rebuilt from the ground up.',
     meta: {
       theme: ['horror', 'mystery', 'supernatural'],
       mood:  ['dark', 'contemplative', 'bleak', 'prestige'],
@@ -151,6 +144,11 @@ export const GAME_CATALOG = [
     name: 'Dead Space',
     emoji: '👁️',
     tagline: 'Isolation and terror in deep space',
+    image: steam(1693980),
+    price: 39.99,
+    rating: 8.9,
+    tags: ['Sci-Fi', 'Horror', 'Survival', 'Space', 'Atmospheric'],
+    description: 'Engineer Isaac Clarke ventures into a stricken mining ship only to find creatures reanimated from human flesh. Claustrophobic, relentless, and genuinely frightening.',
     meta: {
       theme: ['sci_fi', 'horror', 'survival'],
       mood:  ['tension', 'dark', 'bleak'],
@@ -161,9 +159,14 @@ export const GAME_CATALOG = [
   // ── Action / Shooter ───────────────────────────────────────────────────────
   {
     id: 'doom',
-    name: 'Doom',
+    name: 'Doom Eternal',
     emoji: '💀',
     tagline: 'Relentless, visceral, extreme action',
+    image: steam(782330),
+    price: 29.99,
+    rating: 8.4,
+    tags: ['Action', 'FPS', 'Horror', 'Fast-Paced', 'Challenging'],
+    description: 'The Doom Slayer battles demons across Earth and beyond at blistering speed. Pure, refined action — no story required.',
     meta: {
       theme: ['action', 'horror'],
       mood:  ['explosive', 'fun', 'dark'],
@@ -172,9 +175,14 @@ export const GAME_CATALOG = [
   },
   {
     id: 'halo',
-    name: 'Halo',
+    name: 'Halo: MCC',
     emoji: '🪖',
     tagline: 'Epic sci-fi warfare across the stars',
+    image: steam(976730),
+    price: 39.99,
+    rating: 8.6,
+    tags: ['Sci-Fi', 'FPS', 'Action', 'Military', 'Co-op'],
+    description: 'The Master Chief Collection brings together six Halo campaigns. The definitive sci-fi shooter saga, rebuilt for PC.',
     meta: {
       theme: ['sci_fi', 'war', 'action'],
       mood:  ['epic', 'tension'],
@@ -183,9 +191,14 @@ export const GAME_CATALOG = [
   },
   {
     id: 'call-of-duty',
-    name: 'Call of Duty',
+    name: 'Call of Duty: BOCW',
     emoji: '🎖️',
     tagline: 'Intense military operations under fire',
+    image: steam(1985810),
+    price: 59.99,
+    rating: 7.8,
+    tags: ['Action', 'FPS', 'Military', 'Multiplayer', 'Cold War'],
+    description: 'Tense Cold War operations across multiple continents. Blockbuster multiplayer and a surprisingly sharp espionage campaign.',
     meta: {
       theme: ['war', 'action'],
       mood:  ['tension', 'realism', 'epic'],
@@ -194,9 +207,14 @@ export const GAME_CATALOG = [
   },
   {
     id: 'metal-gear-solid',
-    name: 'Metal Gear Solid',
+    name: 'Metal Gear Solid V',
     emoji: '🐍',
     tagline: 'Cinematic stealth and political conspiracy',
+    image: steam(287700),
+    price: 19.99,
+    rating: 9.4,
+    tags: ['Stealth', 'Action', 'Open World', 'Cinematic', 'Conspiracy'],
+    description: 'Venom Snake builds Diamond Dogs from the ruins of MSF. A vast open-world stealth sandbox that questions war, identity, and loyalty.',
     meta: {
       theme: ['stealth', 'conspiracy', 'politics'],
       mood:  ['tension', 'contemplative', 'dark', 'prestige'],
@@ -210,6 +228,11 @@ export const GAME_CATALOG = [
     name: 'GTA V',
     emoji: '🚗',
     tagline: 'Crime, chaos and modern American satire',
+    image: steam(271590),
+    price: 29.99,
+    rating: 9.0,
+    tags: ['Open World', 'Crime', 'Action', 'Satire', 'Multiplayer'],
+    description: 'Three criminals navigate Los Santos\' criminal underworld in Rockstar\'s sharp, satirical take on modern America. A decade later, still unmatched.',
     meta: {
       theme: ['crime', 'action', 'noir'],
       mood:  ['fun', 'dark', 'explosive'],
@@ -221,6 +244,11 @@ export const GAME_CATALOG = [
     name: 'Red Dead Redemption 2',
     emoji: '🤠',
     tagline: 'Honor, loss and the dying American frontier',
+    image: steam(1174180),
+    price: 59.99,
+    rating: 9.7,
+    tags: ['Open World', 'Western', 'Drama', 'Story-Rich', 'Cinematic'],
+    description: 'Arthur Morgan rides with the Van der Linde gang as the frontier closes in. A sweeping, melancholic masterpiece about loyalty and loss.',
     meta: {
       theme: ['western', 'drama'],
       mood:  ['melancholic', 'realism', 'bleak', 'prestige'],
@@ -232,6 +260,11 @@ export const GAME_CATALOG = [
     name: 'Cyberpunk 2077',
     emoji: '🤖',
     tagline: 'Neon dystopia, corpo power and rebellion',
+    image: steam(1091500),
+    price: 39.99,
+    rating: 8.5,
+    tags: ['RPG', 'Cyberpunk', 'Open World', 'Sci-Fi', 'Mature'],
+    description: 'V, a mercenary in the neon-drenched megacity of Night City, chases immortality — and finds something else entirely.',
     meta: {
       theme: ['cyberpunk', 'crime', 'dystopia'],
       mood:  ['dark', 'tension', 'explosive'],
@@ -245,6 +278,11 @@ export const GAME_CATALOG = [
     name: 'The Witcher 3',
     emoji: '🗡️',
     tagline: 'Morally complex dark fantasy and folklore',
+    image: steam(292030),
+    price: 39.99,
+    rating: 9.6,
+    tags: ['RPG', 'Fantasy', 'Open World', 'Story-Rich', 'Dark'],
+    description: 'Geralt of Rivia hunts for his adopted daughter across a war-torn world of monsters, politics, and moral ambiguity. The benchmark for open-world RPGs.',
     meta: {
       theme: ['fantasy', 'drama', 'mystery'],
       mood:  ['dark', 'contemplative', 'tension'],
@@ -253,9 +291,14 @@ export const GAME_CATALOG = [
   },
   {
     id: 'dark-souls',
-    name: 'Dark Souls',
+    name: 'Dark Souls III',
     emoji: '⚔️',
     tagline: 'Bleak worlds where perseverance is everything',
+    image: steam(374320),
+    price: 39.99,
+    rating: 8.8,
+    tags: ['Dark Fantasy', 'Action RPG', 'Challenging', 'Atmospheric', 'Lore-Rich'],
+    description: 'An ashen realm of dying gods and impossible trials. Every death teaches you something; every victory is hard-earned.',
     meta: {
       theme: ['fantasy', 'drama'],
       mood:  ['bleak', 'contemplative', 'dark', 'prestige'],
@@ -267,6 +310,11 @@ export const GAME_CATALOG = [
     name: 'Skyrim',
     emoji: '🏔️',
     tagline: 'Grand adventure in vast, mythical lands',
+    image: steam(489830),
+    price: 19.99,
+    rating: 8.9,
+    tags: ['Open World', 'Fantasy', 'RPG', 'Adventure', 'Dragons'],
+    description: 'The last Dragonborn discovers a shout that can end the world — or use it to explore one of gaming\'s most beloved open worlds.',
     meta: {
       theme: ['fantasy', 'adventure', 'mythology'],
       mood:  ['epic', 'wonder'],
@@ -278,6 +326,11 @@ export const GAME_CATALOG = [
     name: "Baldur's Gate 3",
     emoji: '🎲',
     tagline: 'Choice-driven storytelling and epic ensemble casts',
+    image: steam(1086940),
+    price: 59.99,
+    rating: 9.8,
+    tags: ['RPG', 'Fantasy', 'Co-op', 'Story-Rich', 'Turn-Based'],
+    description: 'A mind-flayer tadpole. A party of unlikely companions. Choices that actually matter. The new benchmark for RPGs.',
     meta: {
       theme: ['fantasy', 'drama', 'adventure'],
       mood:  ['contemplative', 'dark', 'epic', 'prestige'],
@@ -291,6 +344,11 @@ export const GAME_CATALOG = [
     name: "No Man's Sky",
     emoji: '🪐',
     tagline: 'Meditative exploration of alien worlds',
+    image: steam(275850),
+    price: 59.99,
+    rating: 8.2,
+    tags: ['Sci-Fi', 'Exploration', 'Space', 'Survival', 'Multiplayer'],
+    description: 'Endless procedurally generated planets to explore, trade, and survive on. A redemption arc turned meditation on an infinite universe.',
     meta: {
       theme: ['sci_fi', 'exploration'],
       mood:  ['wonder', 'melancholic', 'contemplative'],
@@ -299,9 +357,14 @@ export const GAME_CATALOG = [
   },
   {
     id: 'mass-effect',
-    name: 'Mass Effect',
+    name: 'Mass Effect LE',
     emoji: '🚀',
     tagline: 'Operatic sci-fi with crew loyalty at its core',
+    image: steam(1328670),
+    price: 59.99,
+    rating: 9.4,
+    tags: ['Sci-Fi', 'RPG', 'Action', 'Story-Rich', 'Space Opera'],
+    description: 'Shepherd must unite the galaxy against an ancient threat. One of gaming\'s most emotionally resonant sci-fi trilogies, remastered.',
     meta: {
       theme: ['sci_fi', 'action', 'adventure'],
       mood:  ['tension', 'melancholic', 'contemplative'],
@@ -310,9 +373,14 @@ export const GAME_CATALOG = [
   },
   {
     id: 'portal',
-    name: 'Portal',
+    name: 'Portal 2',
     emoji: '🔵',
     tagline: 'Dark wit, puzzle logic and AI gone rogue',
+    image: steam(620),
+    price: 9.99,
+    rating: 9.5,
+    tags: ['Puzzle', 'Sci-Fi', 'Dark Humor', 'Co-op', 'Atmospheric'],
+    description: 'Test chambers, portals, and GLaDOS. Valve\'s masterclass in puzzle design with some of gaming\'s finest dark comedy.',
     meta: {
       theme: ['sci_fi', 'comedy'],
       mood:  ['dark_humor', 'tension', 'wonder', 'prestige'],
@@ -324,6 +392,11 @@ export const GAME_CATALOG = [
     name: 'Outer Wilds',
     emoji: '☄️',
     tagline: 'Mystery, time loops and existential wonder',
+    image: steam(753640),
+    price: 24.99,
+    rating: 9.3,
+    tags: ['Exploration', 'Mystery', 'Sci-Fi', 'Atmospheric', 'Time Loop'],
+    description: 'A solar system stuck in a 22-minute loop. The answers are out there — you just have to explore long enough to find them.',
     meta: {
       theme: ['sci_fi', 'mystery', 'time_loop'],
       mood:  ['wonder', 'melancholic', 'contemplative', 'prestige'],
@@ -337,6 +410,11 @@ export const GAME_CATALOG = [
     name: 'Civilization VI',
     emoji: '🏛️',
     tagline: 'The sweep of human history and power',
+    image: steam(289070),
+    price: 29.99,
+    rating: 8.1,
+    tags: ['Strategy', 'Historical', 'Turn-Based', '4X', 'Civilization'],
+    description: 'Lead your civilization from the ancient era to the space age, outmaneuvering rival leaders through diplomacy, culture, and war.',
     meta: {
       theme: ['history', 'war', 'politics'],
       mood:  ['realism', 'contemplative'],
@@ -345,9 +423,14 @@ export const GAME_CATALOG = [
   },
   {
     id: 'age-of-empires',
-    name: 'Age of Empires',
+    name: 'Age of Empires IV',
     emoji: '🏰',
     tagline: 'Conquest, empire-building and ancient warfare',
+    image: steam(1466860),
+    price: 39.99,
+    rating: 7.9,
+    tags: ['Strategy', 'Historical', 'RTS', 'War', 'Medieval'],
+    description: 'Real-time strategy across the medieval world. Build civilizations, command armies, and rewrite history.',
     meta: {
       theme: ['history', 'war', 'adventure'],
       mood:  ['epic', 'realism'],
@@ -359,6 +442,11 @@ export const GAME_CATALOG = [
     name: 'Crusader Kings III',
     emoji: '👑',
     tagline: 'Dynastic intrigue, betrayal and medieval politics',
+    image: steam(1158310),
+    price: 49.99,
+    rating: 8.3,
+    tags: ['Strategy', 'Medieval', 'Politics', 'Simulation', 'Roleplay'],
+    description: 'Manage a medieval dynasty through marriage, intrigue, war, and succession crises. History as an endlessly dramatic soap opera.',
     meta: {
       theme: ['history', 'politics', 'drama'],
       mood:  ['dark', 'contemplative', 'realism'],
@@ -372,6 +460,11 @@ export const GAME_CATALOG = [
     name: 'Journey',
     emoji: '🏜️',
     tagline: 'Wordless beauty and transcendent wonder',
+    image: steam(638230),
+    price: 14.99,
+    rating: 9.1,
+    tags: ['Adventure', 'Atmospheric', 'Indie', 'Emotional', 'Exploration'],
+    description: 'A nameless traveler crosses a vast desert toward a distant mountain. Wordless, beautiful, profound — a 90-minute experience unlike anything else.',
     meta: {
       theme: ['adventure', 'drama', 'exploration'],
       mood:  ['wonder', 'melancholic', 'contemplative', 'prestige'],
@@ -383,6 +476,11 @@ export const GAME_CATALOG = [
     name: 'Undertale',
     emoji: '❤️',
     tagline: 'Subversive storytelling and unexpected empathy',
+    image: steam(391540),
+    price: 9.99,
+    rating: 9.4,
+    tags: ['RPG', 'Indie', 'Emotional', 'Pixel Art', 'Unique'],
+    description: 'A human child falls into the Underground, where monsters live. Whether to fight or befriend them is entirely up to you.',
     meta: {
       theme: ['animation', 'fantasy', 'narrative'],
       mood:  ['wonder', 'melancholic', 'dark_humor', 'prestige'],
@@ -394,6 +492,11 @@ export const GAME_CATALOG = [
     name: 'Minecraft',
     emoji: '⛏️',
     tagline: 'Creativity, discovery and building worlds',
+    image: null,
+    price: 26.95,
+    rating: 9.3,
+    tags: ['Survival', 'Creative', 'Sandbox', 'Open World', 'Multiplayer'],
+    description: 'Place blocks. Break blocks. Build anything. Survive the night. A creative sandbox with no end goal and infinite possibility.',
     meta: {
       theme: ['adventure', 'fantasy', 'exploration'],
       mood:  ['wonder', 'fun'],
@@ -405,6 +508,11 @@ export const GAME_CATALOG = [
     name: 'Disco Elysium',
     emoji: '🥃',
     tagline: 'Political noir, failure and the search for meaning',
+    image: steam(632470),
+    price: 39.99,
+    rating: 9.5,
+    tags: ['RPG', 'Noir', 'Mystery', 'Story-Rich', 'Political'],
+    description: 'A disgraced detective with no memory investigates a murder in a city on the edge of collapse. The finest RPG writing ever committed to code.',
     meta: {
       theme: ['noir', 'politics', 'mystery'],
       mood:  ['dark', 'contemplative', 'melancholic', 'prestige'],
@@ -413,10 +521,31 @@ export const GAME_CATALOG = [
   },
 ];
 
-// ── Part 4: Inverse recommendation stubs (Movie → Game) ──────────────────────
-// Foundation for suggesting games based on a movie's themes/mood.
-// UI not yet implemented — structure is ready for a future /movie/:id sidebar.
+// ── Recommendation helpers ────────────────────────────────────────────────────
 
+/**
+ * Returns up to `count` games similar to `selectedId`, scored by
+ * overlapping theme + mood tags (tag intersection).
+ */
+export function getRelatedGames(selectedId, count = 10) {
+  const selected = GAME_CATALOG.find(g => g.id === selectedId);
+  if (!selected) return GAME_CATALOG.slice(0, count);
+
+  const themes = new Set(selected.meta.theme);
+  const moods  = new Set(selected.meta.mood);
+
+  return GAME_CATALOG
+    .filter(g => g.id !== selectedId)
+    .map(g => ({
+      ...g,
+      _score: g.meta.theme.filter(t => themes.has(t)).length * 2
+             + g.meta.mood.filter(m => moods.has(m)).length,
+    }))
+    .sort((a, b) => b._score - a._score)
+    .slice(0, count);
+}
+
+// ── Inverse recommendation stubs (Movie → Game) ───────────────────────────────
 export const MOVIE_TO_GAME_HINTS = [
   {
     movieMeta: { theme: ['zombies', 'survival', 'post_apocalyptic'] },

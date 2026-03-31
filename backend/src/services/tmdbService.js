@@ -215,6 +215,29 @@ export const getPopularTV = async (page = 1) => {
   return data.results.map(normalizeTV);
 };
 
+export const discoverTV = async ({
+  page = 1,
+  genres,
+  sort_by = 'popularity.desc',
+  rating_gte,
+} = {}) => {
+  const params = {
+    page,
+    sort_by,
+    'vote_count.gte': 30,
+    include_adult: false,
+    ...(genres?.length && { with_genres: Array.isArray(genres) ? genres.join(',') : genres }),
+    ...(rating_gte && { 'vote_average.gte': rating_gte }),
+  };
+  const { data } = await tmdb.get('/discover/tv', { params });
+  return {
+    results: data.results.map(normalizeTV),
+    totalPages: data.total_pages,
+    totalResults: data.total_results,
+    page: data.page,
+  };
+};
+
 export const searchMulti = async (query, page = 1) => {
   const { data } = await tmdb.get('/search/multi', {
     params: { query, page, include_adult: false },

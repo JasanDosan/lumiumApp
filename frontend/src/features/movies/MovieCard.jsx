@@ -25,7 +25,7 @@ export default function MovieCard({ movie, showScore = false, to }) {
   const inner = (
     <>
       {/* Poster */}
-      <div className="relative aspect-[2/3] overflow-hidden rounded-md bg-neutral-100">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-md bg-surface-high">
         <img
           src={poster}
           alt={movie.title}
@@ -38,7 +38,7 @@ export default function MovieCard({ movie, showScore = false, to }) {
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 rounded-md" />
 
         {showScore && movie.score != null && (
-          <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-ink text-[11px] font-semibold px-2 py-0.5 rounded-full">
+          <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
             {movie.score.toFixed(1)}
           </div>
         )}
@@ -59,8 +59,8 @@ export default function MovieCard({ movie, showScore = false, to }) {
               absolute top-2 right-2 p-1.5 rounded-full
               transition-all duration-200
               ${favorited
-                ? 'opacity-100 bg-white/90 text-red-500'
-                : 'opacity-0 group-hover:opacity-100 bg-white/80 text-ink-light hover:text-red-500 backdrop-blur-sm'
+                ? 'opacity-100 bg-black/70 text-red-400'
+                : 'opacity-0 group-hover:opacity-100 bg-black/60 text-white/60 hover:text-red-400 backdrop-blur-sm'
               }
             `}
           >

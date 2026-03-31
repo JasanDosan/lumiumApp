@@ -78,7 +78,7 @@ function ProviderSection({ provider, region }) {
           <img
             src={provider.logoUrl}
             alt={provider.name}
-            className="w-8 h-8 rounded-lg object-contain bg-white border border-line"
+            className="w-8 h-8 rounded-lg object-contain bg-surface border border-line"
           />
         )}
         <div>
@@ -153,8 +153,8 @@ export default function MoviesPage() {
             <select
               value={region}
               onChange={handleRegionChange}
-              className="text-sm border border-line rounded-full px-3 py-2 bg-white text-ink-mid
-                         focus:outline-none focus:border-ink/30 cursor-pointer"
+              className="text-sm border border-line rounded-full px-3 py-2 bg-surface text-ink-mid
+                         focus:outline-none focus:border-line/60 cursor-pointer"
             >
               {SUPPORTED_REGIONS.map(r => (
                 <option key={r.code} value={r.code}>{r.name}</option>

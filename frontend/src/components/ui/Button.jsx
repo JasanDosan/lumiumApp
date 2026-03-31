@@ -1,6 +1,6 @@
 const variants = {
-  primary:   'bg-ink text-white hover:bg-ink/80',
-  secondary: 'bg-white text-ink border border-line hover:bg-neutral-50',
+  primary:   'bg-accent text-white hover:bg-accent-hover',
+  secondary: 'bg-surface text-ink border border-line hover:bg-surface-high',
   ghost:     'text-ink-mid hover:text-ink',
   outline:   'border border-ink/20 text-ink hover:border-ink',
   danger:    'bg-red text-white hover:bg-red-hover',

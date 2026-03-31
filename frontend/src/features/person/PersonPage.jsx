@@ -44,7 +44,7 @@ export default function PersonPage() {
         <div className="flex gap-6 sm:gap-10 mb-10">
           {/* Photo */}
           <div className="shrink-0">
-            <div className="w-28 sm:w-36 aspect-[2/3] rounded-lg overflow-hidden bg-neutral-100">
+            <div className="w-28 sm:w-36 aspect-[2/3] rounded-lg overflow-hidden bg-surface-high">
               {person.profileUrl ? (
                 <img
                   src={person.profileUrl}
@@ -71,12 +71,12 @@ export default function PersonPage() {
             {/* Meta pills */}
             <div className="flex flex-wrap gap-2 mb-4">
               {person.birthday && (
-                <span className="text-xs bg-neutral-100 text-ink-mid px-3 py-1 rounded-full border border-line">
+                <span className="text-xs bg-surface-high text-ink-mid px-3 py-1 rounded-full border border-line">
                   b. {person.birthday}{age ? ` (${age})` : ''}
                 </span>
               )}
               {person.placeOfBirth && (
-                <span className="text-xs bg-neutral-100 text-ink-mid px-3 py-1 rounded-full border border-line truncate max-w-[200px]">
+                <span className="text-xs bg-surface-high text-ink-mid px-3 py-1 rounded-full border border-line truncate max-w-[200px]">
                   {person.placeOfBirth}
                 </span>
               )}

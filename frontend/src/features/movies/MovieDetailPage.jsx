@@ -67,7 +67,7 @@ function CastCard({ person }) {
       to={`/person/${person.id}`}
       className="group block shrink-0 w-28 text-left"
     >
-      <div className="aspect-[2/3] rounded-md overflow-hidden bg-neutral-100">
+      <div className="aspect-[2/3] rounded-md overflow-hidden bg-surface-high">
         {person.profileUrl ? (
           <img
             src={person.profileUrl}
@@ -76,7 +76,7 @@ function CastCard({ person }) {
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-neutral-100">
+          <div className="w-full h-full flex items-center justify-center bg-surface-high">
             <span className="text-2xl text-ink-faint select-none">◎</span>
           </div>
         )}
@@ -132,9 +132,9 @@ function CrewCard({ person, role }) {
   return (
     <Link
       to={`/person/${person.id}`}
-      className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-line bg-white hover:border-ink/20 hover:shadow-sm transition-all"
+      className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-line bg-surface hover:border-line/60 transition-all"
     >
-      <div className="w-10 h-10 rounded-full overflow-hidden bg-neutral-100 shrink-0">
+      <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-high shrink-0">
         {person.profileUrl ? (
           <img src={person.profileUrl} alt={person.name} className="w-full h-full object-cover" loading="lazy" />
         ) : (
