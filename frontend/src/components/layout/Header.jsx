@@ -32,7 +32,7 @@ export default function Header() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-7">
-            <NavLink to="/" end className={navLinkClass}>Discover</NavLink>
+            <NavLink to="/" end className={navLinkClass}>Home</NavLink>
             <NavLink to="/movies" className={navLinkClass}>Platforms</NavLink>
             {isAuthenticated && (
               <>
@@ -44,6 +44,12 @@ export default function Header() {
 
           {/* Auth */}
           <div className="hidden md:flex items-center gap-5">
+            <Link to="/search" className="text-ink-light hover:text-ink transition-colors" aria-label="Search">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </Link>
             {isAuthenticated ? (
               <NavLink to="/profile" className={navLinkClass}>
                 {user?.name?.split(' ')[0]}
@@ -85,7 +91,8 @@ export default function Header() {
       {/* Mobile menu */}
       {menuOpen && (
         <div className="md:hidden bg-canvas border-t border-line px-5 py-5 flex flex-col gap-4 animate-fade-in">
-          <NavLink to="/" end className={navLinkClass} onClick={() => setMenuOpen(false)}>Discover</NavLink>
+          <NavLink to="/" end className={navLinkClass} onClick={() => setMenuOpen(false)}>Home</NavLink>
+          <NavLink to="/search" className={navLinkClass} onClick={() => setMenuOpen(false)}>Search</NavLink>
           <NavLink to="/movies" className={navLinkClass} onClick={() => setMenuOpen(false)}>Platforms</NavLink>
           {isAuthenticated && (
             <>

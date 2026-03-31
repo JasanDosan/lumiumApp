@@ -43,10 +43,12 @@ export default function MovieCard({ movie, showScore = false, to }) {
           </div>
         )}
 
-        {/* TV badge */}
-        {movie.mediaType === 'tv' && (
-          <span className="absolute bottom-2 left-2 text-[10px] font-semibold bg-black/60 text-white px-1.5 py-0.5 rounded">
-            SERIES
+        {/* Type badge — always visible when mediaType is set */}
+        {movie.mediaType && (
+          <span className={`absolute bottom-2 left-2 text-[9px] font-black tracking-[0.12em] uppercase
+                           px-2 py-0.5 rounded text-white
+                           ${movie.mediaType === 'tv' ? 'bg-violet-500' : 'bg-amber-500'}`}>
+            {movie.mediaType === 'tv' ? 'SERIES' : 'FILM'}
           </span>
         )}
 

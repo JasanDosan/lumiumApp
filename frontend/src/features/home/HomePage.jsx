@@ -1,138 +1,120 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
 import { tvService } from '@/services/tvService';
 import { useAuthStore } from '@/features/auth/authStore';
-import { useFavoritesStore } from '@/features/favorites/favoritesStore';
-import { GAME_CATALOG, getRelatedGames, translateMetaToTMDB } from '@/data/gameMovieTags';
-import { useDebounce } from '@/hooks/useDebounce';
+import { GAME_CATALOG, translateMetaToTMDB } from '@/data/gameMovieTags';
 import GameHero from '@/features/games/GameHero';
 import GameRow from '@/features/games/GameRow';
-import FilterBar from '@/features/discover/FilterBar';
-import ContentCarousel from '@/features/discover/ContentCarousel';
-import MovieCard from '@/features/movies/MovieCard';
+import BecauseYouPlayed from './BecauseYouPlayed';
 import MovieRow from '@/features/movies/MovieRow';
-import SectionWrapper from '@/components/ui/SectionWrapper';
+import UnifiedCard from '@/components/ui/UnifiedCard';
+import DragRow from '@/components/ui/DragRow';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Static derived data ──────────────────────────────────────────────────────
 
-const LS_GAME_KEY = 'pm_selected_game';
+const TRENDING_GAMES = [...GAME_CATALOG].sort((a, b) => b.rating - a.rating).slice(0, 12);
+
+const DEAL_GAMES = GAME_CATALOG
+  .filter(g => g.price > 0 && g.price <= 29.99)
+  .sort((a, b) => (b.rating / b.price) - (a.rating / a.price))
+  .slice(0, 10);
+
+const DISCOVERY_GENRES = [
+  { id: 28,    label: 'Action',    emoji: '💥' },
+  { id: 27,    label: 'Horror',    emoji: '👻' },
+  { id: 878,   label: 'Sci-Fi',    emoji: '🚀' },
+  { id: 53,    label: 'Thriller',  emoji: '🔪' },
+  { id: 18,    label: 'Drama',     emoji: '🎭' },
+  { id: 14,    label: 'Fantasy',   emoji: '🧙' },
+  { id: 80,    label: 'Crime',     emoji: '🔫' },
+  { id: 35,    label: 'Comedy',    emoji: '😄' },
+  { id: 12,    label: 'Adventure', emoji: '🗺️' },
+  { id: 10752, label: 'War',       emoji: '⚔️' },
+  { id: 9648,  label: 'Mystery',   emoji: '🔍' },
+  { id: 37,    label: 'Western',   emoji: '🤠' },
+];
+
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+
+const LS_GAME_KEY   = 'pm_selected_game';
+const LS_RECENT_KEY = 'pm_recent_games';
 
 function getStoredGame() {
   try {
     const saved = localStorage.getItem(LS_GAME_KEY);
     return GAME_CATALOG.some(g => g.id === saved) ? saved : GAME_CATALOG[0].id;
-  } catch {
-    return GAME_CATALOG[0].id;
-  }
+  } catch { return GAME_CATALOG[0].id; }
 }
 
-function parseSearchParams(sp) {
-  const person     = sp.get('person');
-  const personName = sp.get('personName');
-  const genres     = sp.get('genres');
-  return {
-    ...(person && { with_person: Number(person), personName: personName || undefined }),
-    ...(genres && { genres: genres.split(',').map(Number) }),
+function getRecentGames() {
+  try {
+    const ids = JSON.parse(localStorage.getItem(LS_RECENT_KEY) || '[]');
+    return ids.map(id => GAME_CATALOG.find(g => g.id === id)).filter(Boolean);
+  } catch { return []; }
+}
+
+// ─── Section header helpers ───────────────────────────────────────────────────
+
+function SectionHead({ overline, title, color = 'default', action }) {
+  const colorMap = {
+    accent:  { bar: 'bg-accent',    over: 'text-accent' },
+    amber:   { bar: 'bg-amber-500', over: 'text-amber-400' },
+    violet:  { bar: 'bg-violet-500', over: 'text-violet-400' },
+    default: { bar: 'bg-line',      over: 'text-ink-light' },
   };
-}
+  const c = colorMap[color] ?? colorMap.default;
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function GridSkeleton({ count = 12 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} aria-hidden="true">
-          <div className="aspect-[2/3] skeleton rounded-md" />
-          <div className="mt-2.5 space-y-1.5">
-            <div className="skeleton h-3 w-3/4 rounded" />
-            <div className="skeleton h-2.5 w-1/3 rounded" />
-          </div>
+    <div className="flex items-end justify-between gap-4 mb-5">
+      <div>
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className={`w-0.5 h-5 ${c.bar} rounded-full shrink-0`} />
+          <p className={`text-[10px] font-black tracking-[0.2em] uppercase ${c.over}`}>
+            {overline}
+          </p>
         </div>
-      ))}
+        <h2 className="text-xl font-bold text-ink leading-tight">{title}</h2>
+      </div>
+      {action}
     </div>
   );
 }
 
-/** Game movie section: shows movies from the currently selected game */
-function GameMovieSection({ game, selectedGameId, onGameChange }) {
-  const [movies, setMovies]     = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const fetchedFor              = useRef(null);
+// ─── LandscapeRow (local) ─────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (!game || fetchedFor.current === game.id) return;
-    fetchedFor.current = game.id;
-
-    let cancelled = false;
-    setLoading(true);
-    const filters = translateMetaToTMDB(game.meta);
-
-    movieService.discover({ ...filters, page: 1 })
-      .then(data => {
-        if (!cancelled) setMovies((data.results || []).slice(0, 16));
-      })
-      .catch(console.error)
-      .finally(() => { if (!cancelled) setLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [game]);
-
-  const relatedGames = useMemo(
-    () => getRelatedGames(selectedGameId, 12),
-    [selectedGameId],
-  );
-
-  if (!game) return null;
-
+function LandscapeRow({ items, type, isLoading }) {
+  if (isLoading) {
+    return (
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="shrink-0 w-64 xl:w-72">
+            <div className="skeleton aspect-video rounded-xl" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (!items.length) return null;
   return (
-    <section className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <p className="section-label mb-1">Watch after playing</p>
-          <h2 className="text-lg font-semibold text-ink">
-            {game.emoji} {game.name}
-          </h2>
-          <p className="text-xs text-ink-mid mt-0.5 italic">{game.tagline}</p>
+    <DragRow gap="gap-4">
+      {items.map(item => (
+        <div key={item.tmdbId ?? item.id} className="shrink-0 w-64 xl:w-72 pointer-events-auto">
+          <UnifiedCard item={item} type={type} />
         </div>
-        <Link
-          to={`/game/${game.id}`}
-          className="text-xs text-ink-light hover:text-ink transition-colors shrink-0"
-        >
-          Game details →
-        </Link>
-      </div>
-
-      {/* Movie row */}
-      <MovieRow movies={movies} isLoading={loading} cardWidth="w-32 sm:w-36" />
-
-      {/* Related games row */}
-      <div>
-        <p className="text-[11px] text-ink-light mb-2.5 uppercase tracking-widest font-semibold">
-          Games with a similar vibe
-        </p>
-        <GameRow
-          games={relatedGames}
-          selectedId={selectedGameId}
-          onSelect={onGameChange}
-          cardWidth="w-36 sm:w-44"
-        />
-      </div>
-    </section>
+      ))}
+    </DragRow>
   );
 }
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const [searchParams] = useSearchParams();
-  const { isAuthenticated, user } = useAuthStore();
-  const { favorites } = useFavoritesStore();
+  const { isAuthenticated } = useAuthStore();
 
-  // ── Selected game ──────────────────────────────────────────────────────────
+  // ── Game selection ────────────────────────────────────────────────────────
   const [selectedGameId, setSelectedGameId] = useState(getStoredGame);
+  const [recentGames]                       = useState(getRecentGames);
 
   const handleGameChange = useCallback((id) => {
     localStorage.setItem(LS_GAME_KEY, id);
@@ -144,366 +126,233 @@ export default function HomePage() {
     [selectedGameId],
   );
 
-  // ── Carousel data ──────────────────────────────────────────────────────────
-  const [trending, setTrending]                       = useState([]);
-  const [trendingLoading, setTrendingLoading]         = useState(true);
-  const [trendingTV, setTrendingTV]                   = useState([]);
-  const [trendingTVLoading, setTrendingTVLoading]     = useState(true);
-  const [personalRecs, setPersonalRecs]               = useState([]);
-  const [personalRecsLoading, setPersonalRecsLoading] = useState(false);
-  const [similarSections, setSimilarSections]         = useState([]);
-  const [allGenres, setAllGenres]                     = useState([]);
+  // Featured game = highest-rated (static)
+  const featuredGame = useMemo(() => TRENDING_GAMES[0], []);
 
-  // ── Filters ────────────────────────────────────────────────────────────────
-  const [filters, setFilters] = useState(() => parseSearchParams(searchParams));
-  const debouncedFilters = useDebounce(filters, 450);
+  // ── Remote data ───────────────────────────────────────────────────────────
+  const [recs, setRecs]                       = useState([]);
+  const [recsLoading, setRecsLoading]         = useState(false);
+  const [gamesMovies, setGamesMovies]         = useState([]);
+  const [gamesSeries, setGamesSeries]         = useState([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const discoverFetchedFor                    = useRef(null);
+  const recsFetched                           = useRef(false);
 
-  // ── Grid ───────────────────────────────────────────────────────────────────
-  const [gridItems, setGridItems]               = useState([]);
-  const [gridPage, setGridPage]                 = useState(1);
-  const [gridTotalPages, setGridTotalPages]     = useState(0);
-  const [gridTotalResults, setGridTotalResults] = useState(0);
-  const [gridLoading, setGridLoading]           = useState(true);
-
-  const gridSentinelRef  = useRef(null);
-  const carouselsFetched = useRef(false);
-
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const hasActiveFilters = useMemo(() => Boolean(
-    filters.search ||
-    filters.genres?.length > 0 ||
-    filters.year_gte || filters.year_lte ||
-    filters.rating_gte ||
-    filters.with_person ||
-    (filters.sort_by && filters.sort_by !== 'popularity.desc'),
-  ), [filters]);
-
-  const gridHasMore = gridPage < gridTotalPages;
-
-  const favMovies = useMemo(() => favorites.map(f => ({
-    tmdbId: f.tmdbId, title: f.title, posterPath: f.posterPath,
-    rating: f.rating, releaseDate: f.releaseDate, genreIds: f.genreIds,
-  })), [favorites]);
-
-  // ── Load carousels once ────────────────────────────────────────────────────
+  // ── Fetch recommendations (auth) ──────────────────────────────────────────
   useEffect(() => {
-    if (carouselsFetched.current) return;
-    carouselsFetched.current = true;
-
-    movieService.getGenres()
-      .then(data => setAllGenres(data.genres || []))
-      .catch(console.error);
-
-    movieService.getTrending()
-      .then(data => setTrending(data.results || []))
-      .catch(console.error)
-      .finally(() => setTrendingLoading(false));
-
-    tvService.getTrending()
-      .then(data => setTrendingTV(data.results || []))
-      .catch(console.error)
-      .finally(() => setTrendingTVLoading(false));
-  }, []);
-
-  // ── Personalised recs ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isAuthenticated) { setPersonalRecs([]); return; }
-    let cancelled = false;
-    setPersonalRecsLoading(true);
+    if (!isAuthenticated || recsFetched.current) return;
+    recsFetched.current = true;
+    setRecsLoading(true);
     movieService.getRecommendations()
-      .then(data => { if (!cancelled) setPersonalRecs(data.results || []); })
+      .then(d => setRecs((d.results || []).slice(0, 16)))
       .catch(console.error)
-      .finally(() => { if (!cancelled) setPersonalRecsLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => setRecsLoading(false));
   }, [isAuthenticated]);
 
-  // ── "Because you liked X" ─────────────────────────────────────────────────
+  // ── Fetch movies + series for selected game ───────────────────────────────
   useEffect(() => {
-    if (!isAuthenticated || favorites.length === 0) { setSimilarSections([]); return; }
+    if (discoverFetchedFor.current === selectedGameId) return;
+    discoverFetchedFor.current = selectedGameId;
 
-    const top         = favorites.slice(0, 2);
-    const seen        = new Set(favorites.map(f => f.tmdbId));
-    const sectionSeen = new Set();
-    const acc         = [];
-
-    const loadNext = (index) => {
-      if (index >= top.length) {
-        setSimilarSections(acc.filter(s => s.movies.length > 0));
-        return;
-      }
-      const fav = top[index];
-      movieService.getSimilar(fav.tmdbId)
-        .then(data => {
-          const movies = (data.results || [])
-            .filter(m => !seen.has(m.tmdbId) && !sectionSeen.has(m.tmdbId))
-            .slice(0, 12);
-          movies.forEach(m => sectionSeen.add(m.tmdbId));
-          acc.push({ favoriteId: fav.tmdbId, favoriteTitle: fav.title, movies });
-        })
-        .catch(() => {})
-        .finally(() => setTimeout(() => loadNext(index + 1), 300));
-    };
-    loadNext(0);
-  }, [isAuthenticated, favorites.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Reset grid on filter change ────────────────────────────────────────────
-  useEffect(() => {
-    setGridPage(1);
-    setGridItems([]);
-    setGridTotalResults(0);
-    setGridTotalPages(0);
-  }, [debouncedFilters]);
-
-  // ── Fetch grid ────────────────────────────────────────────────────────────
-  useEffect(() => {
     let cancelled = false;
-    setGridLoading(true);
+    setDiscoverLoading(true);
+    setGamesMovies([]);
+    setGamesSeries([]);
 
-    const call = debouncedFilters.search
-      ? movieService.search(debouncedFilters.search, gridPage)
-      : movieService.discover({
-          genres:      debouncedFilters.genres,
-          year_gte:    debouncedFilters.year_gte,
-          year_lte:    debouncedFilters.year_lte,
-          rating_gte:  debouncedFilters.rating_gte,
-          sort_by:     debouncedFilters.sort_by || 'popularity.desc',
-          with_person: debouncedFilters.with_person,
-          page:        gridPage,
-        });
+    const filters = translateMetaToTMDB(selectedGame.meta);
 
-    call
-      .then(data => {
+    Promise.all([
+      movieService.discover({ ...filters, page: 1 }),
+      tvService.discover({ genres: filters.genres, sort_by: filters.sort_by }),
+    ])
+      .then(([movieData, tvData]) => {
         if (cancelled) return;
-        const incoming = data.results || [];
-        setGridItems(prev => {
-          if (gridPage === 1) return incoming;
-          const seen = new Set(prev.map(m => m.tmdbId));
-          return [...prev, ...incoming.filter(m => !seen.has(m.tmdbId))];
-        });
-        setGridTotalResults(data.totalResults || incoming.length);
-        setGridTotalPages(Math.min(data.totalPages || 1, 500));
+        setGamesMovies((movieData.results || []).slice(0, 16));
+        setGamesSeries((tvData.results   || []).slice(0, 16));
       })
-      .catch(err => { if (!cancelled) console.error(err); })
-      .finally(() => { if (!cancelled) setGridLoading(false); });
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setDiscoverLoading(false); });
 
     return () => { cancelled = true; };
-  }, [debouncedFilters, gridPage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedGameId, selectedGame.meta]);
 
-  // ── IntersectionObserver ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (gridLoading || !gridHasMore) return;
-    const el = gridSentinelRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setGridPage(p => p + 1); },
-      { rootMargin: '400px' },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [gridLoading, gridHasMore]);
-
-  const handleFiltersChange = useCallback((updater) => {
-    setFilters(prev => (typeof updater === 'function' ? updater(prev) : updater));
-  }, []);
-
-  // ── Grid header text ──────────────────────────────────────────────────────
-  const gridLabel    = hasActiveFilters ? 'Filtered results' : 'Discover';
-  const gridTitle    = filters.search
-    ? `"${filters.search}"`
-    : filters.with_person && filters.personName
-      ? `Films with ${filters.personName}`
-      : hasActiveFilters ? 'Filtered films' : 'All films';
-  const gridSubtitle = !gridLoading && gridTotalResults > 0
-    ? `${gridItems.length.toLocaleString()} of ${gridTotalResults.toLocaleString()} films`
-    : null;
-
-  const isFirstLoad = gridLoading && gridPage === 1;
-  const isAppending = gridLoading && gridPage > 1;
+  // When game changes via BecauseYouPlayed chip, reset fetch guard
+  const handleGameChangeWithReset = useCallback((id) => {
+    discoverFetchedFor.current = null;
+    handleGameChange(id);
+  }, [handleGameChange]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-canvas">
 
-      {/* ── 1. Game Hero ──────────────────────────────────────────────────── */}
-      {!hasActiveFilters && (
-        <GameHero game={selectedGame} />
-      )}
+      {/* ══════════════════════════════════════════════════════════════════
+          1. HERO — FEATURED GAME
+      ══════════════════════════════════════════════════════════════════ */}
+      <GameHero game={featuredGame} />
 
-      {/* ── FilterBar (sticky below fixed header) ─────────────────────────── */}
-      <FilterBar genres={allGenres} filters={filters} onChange={handleFiltersChange} />
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
 
-      {/* ── Feed ──────────────────────────────────────────────────────────── */}
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-10 space-y-14">
-
-        {/* ── Auth greeting ─────────────────────────────────────────────── */}
-        {isAuthenticated && user && !hasActiveFilters && (
-          <p className="text-xl font-semibold text-ink -mb-6">
-            Hey, {user.name?.split(' ')[0]}.
-          </p>
-        )}
-
-        {/* ── 2. Games Library ──────────────────────────────────────────── */}
-        {!hasActiveFilters && (
-          <SectionWrapper label="Library" title="Browse Games">
+        {/* ════════════════════════════════════════════════════════════════
+            2. CONTINUE PLAYING
+        ════════════════════════════════════════════════════════════════ */}
+        {recentGames.length > 0 && (
+          <section className="pt-12">
+            <SectionHead overline="Your library" title="Continue Playing" color="accent" />
             <GameRow
-              games={GAME_CATALOG}
+              games={recentGames}
               selectedId={selectedGameId}
-              onSelect={handleGameChange}
-              cardWidth="w-40 sm:w-48"
+              onSelect={handleGameChangeWithReset}
+              cardWidth="w-44 sm:w-52"
             />
-          </SectionWrapper>
+          </section>
         )}
 
-        {/* ── 3. Game → Movies ──────────────────────────────────────────── */}
-        {!hasActiveFilters && (
-          <GameMovieSection
-            game={selectedGame}
-            selectedGameId={selectedGameId}
-            onGameChange={handleGameChange}
-          />
-        )}
-
-        {/* ── 4. Saved collection (auth) ────────────────────────────────── */}
-        {isAuthenticated && favMovies.length > 0 && !hasActiveFilters && (
-          <SectionWrapper
-            label="Your collection"
-            title={`${favorites.length} saved film${favorites.length !== 1 ? 's' : ''}`}
-            seeAllTo="/favorites"
-          >
-            <MovieRow movies={favMovies} />
-          </SectionWrapper>
-        )}
-
-        {isAuthenticated && favorites.length === 1 && !hasActiveFilters && (
-          <p className="text-sm text-ink-light border-t border-line pt-6 -mt-8">
-            Add one more film to unlock personalised recommendations.
-          </p>
-        )}
-
-        {/* ── 5. Trending TV ───────────────────────────────────────────── */}
-        {!hasActiveFilters && (
-          <ContentCarousel
-            label="Series"
-            title="Trending on TV"
-            items={trendingTV}
-            isLoading={trendingTVLoading}
-          />
-        )}
-
-        {/* ── 6. Recommended for you (auth) ────────────────────────────── */}
-        {!hasActiveFilters && (isAuthenticated || personalRecsLoading) && (
-          <ContentCarousel
-            label="For you"
-            title="Recommended"
-            items={personalRecs}
-            isLoading={personalRecsLoading}
-            showScore
-          />
-        )}
-
-        {/* ── 7. Because you liked X ───────────────────────────────────── */}
-        {!hasActiveFilters && similarSections.map(section => (
-          <SectionWrapper
-            key={section.favoriteId}
-            label="Because you liked"
-            title={section.favoriteTitle}
-          >
-            <MovieRow movies={section.movies} />
-          </SectionWrapper>
-        ))}
-
-        {/* ── 8. Trending movies ───────────────────────────────────────── */}
-        {!hasActiveFilters && (
-          <ContentCarousel
-            label="This week"
-            title="Trending"
-            items={trending}
-            isLoading={trendingLoading}
-          />
-        )}
-
-        {/* ── Active filter pills ──────────────────────────────────────── */}
-        {hasActiveFilters && (
-          <div className="flex flex-wrap gap-1.5 -mt-8">
-            {filters.genres?.map(id => {
-              const g = allGenres.find(a => a.id === id);
-              return g ? (
-                <span key={id} className="text-[11px] bg-accent/20 text-accent px-2.5 py-0.5 rounded-full border border-accent/30">
-                  {g.name}
-                </span>
-              ) : null;
-            })}
-            {(filters.year_gte || filters.year_lte) && (
-              <span className="text-[11px] bg-surface text-ink-mid px-2.5 py-0.5 rounded-full border border-line">
-                {filters.year_gte || '…'} – {filters.year_lte || 'now'}
-              </span>
-            )}
-            {filters.rating_gte && (
-              <span className="text-[11px] bg-surface text-ink-mid px-2.5 py-0.5 rounded-full border border-line">
-                ★ {filters.rating_gte}+
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* ── 9. Discover grid (always visible, infinite scroll) ────────── */}
-        <section>
-          <div className="mb-6">
-            <p className="section-label mb-1">{gridLabel}</p>
-            <h2 className="text-lg font-semibold text-ink">{gridTitle}</h2>
-            {gridSubtitle && (
-              <p className="text-xs text-ink-light mt-0.5">{gridSubtitle}</p>
-            )}
-          </div>
-
-          {isFirstLoad && <GridSkeleton count={12} />}
-
-          {!isFirstLoad && gridItems.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
-              {gridItems.map(movie => (
-                <MovieCard key={movie.tmdbId} movie={movie} />
-              ))}
-            </div>
-          )}
-
-          {!isFirstLoad && !gridLoading && gridItems.length === 0 && (
-            <div className="py-20 text-center">
-              <p className="text-sm text-ink-light">
-                No films match these filters — try adjusting them.
-              </p>
-            </div>
-          )}
-
-          {isAppending && <GridSkeleton count={6} />}
-
-          {!gridHasMore && gridItems.length > 0 && !gridLoading && (
-            <p className="text-center text-xs text-ink-light mt-10">
-              All {gridItems.length.toLocaleString()} films loaded
-            </p>
-          )}
-
-          <div ref={gridSentinelRef} className="h-px mt-4" aria-hidden="true" />
-        </section>
-
-        {/* ── Guest CTA ─────────────────────────────────────────────────── */}
-        {!isAuthenticated && (
-          <div className="border-t border-line pt-8 flex items-center justify-between gap-6">
-            <div>
-              <p className="text-sm font-medium text-ink">Want personalised picks?</p>
-              <p className="text-xs text-ink-mid mt-0.5">
-                Create a free account and save films to your collection.
-              </p>
-            </div>
-            <Link
-              to="/register"
-              className="shrink-0 text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-full font-medium transition-colors"
-            >
-              Get started
-            </Link>
-          </div>
+        {/* ════════════════════════════════════════════════════════════════
+            3. RECOMMENDED FOR YOU (auth users only)
+        ════════════════════════════════════════════════════════════════ */}
+        {isAuthenticated && (recsLoading || recs.length > 0) && (
+          <section className="pt-14">
+            <SectionHead
+              overline="Personalised"
+              title="Recommended for you"
+              color="accent"
+              action={
+                <Link to="/recommendations" className="text-xs text-ink-light hover:text-ink transition-colors shrink-0">
+                  See all →
+                </Link>
+              }
+            />
+            <MovieRow movies={recs} isLoading={recsLoading} showScore />
+          </section>
         )}
 
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          4. BECAUSE YOU PLAYED X — PRIMARY, FULL-BLEED
+      ══════════════════════════════════════════════════════════════════ */}
+      <div className="mt-14">
+        <BecauseYouPlayed
+          game={selectedGame}
+          movies={gamesMovies}
+          series={gamesSeries}
+          isLoading={discoverLoading}
+          selectedGameId={selectedGameId}
+          onGameChange={handleGameChangeWithReset}
+        />
+      </div>
+
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
+
+        {/* ════════════════════════════════════════════════════════════════
+            5. TRENDING GAMES
+        ════════════════════════════════════════════════════════════════ */}
+        <section className="pt-14">
+          <SectionHead overline="Games" title="Trending Games" color="accent" />
+          <GameRow
+            games={TRENDING_GAMES}
+            selectedId={selectedGameId}
+            onSelect={handleGameChangeWithReset}
+            cardWidth="w-44 sm:w-52"
+          />
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════
+            6. DEALS
+        ════════════════════════════════════════════════════════════════ */}
+        {DEAL_GAMES.length > 0 && (
+          <section className="pt-14">
+            <SectionHead overline="Store" title="On Sale" />
+            <GameRow
+              games={DEAL_GAMES}
+              selectedId={selectedGameId}
+              onSelect={handleGameChangeWithReset}
+              cardWidth="w-44 sm:w-52"
+            />
+          </section>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════
+            7. GENRES
+        ════════════════════════════════════════════════════════════════ */}
+        <section className="pt-14">
+          <SectionHead overline="Browse" title="Explore by Genre" />
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
+            {DISCOVERY_GENRES.map(g => (
+              <Link
+                key={g.id}
+                to={`/search?q=${encodeURIComponent(g.label)}`}
+                className="flex flex-col items-center justify-center gap-2 py-5 px-3
+                           bg-surface border border-line rounded-2xl
+                           hover:border-accent/30 hover:bg-surface-high
+                           transition-all duration-200 group"
+              >
+                <span className="text-2xl group-hover:scale-110 transition-transform duration-200">
+                  {g.emoji}
+                </span>
+                <span className="text-[11px] font-semibold text-ink-mid group-hover:text-ink transition-colors">
+                  {g.label}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════
+            8. MOVIES BASED ON YOUR GAMES
+        ════════════════════════════════════════════════════════════════ */}
+        <section className="pt-14">
+          <SectionHead
+            overline="Films"
+            title={`Movies from ${selectedGame.name}`}
+            color="amber"
+            action={
+              <Link to="/movies" className="text-xs text-ink-light hover:text-ink transition-colors shrink-0">
+                Browse platforms →
+              </Link>
+            }
+          />
+          <LandscapeRow items={gamesMovies} type="movie" isLoading={discoverLoading} />
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════════
+            9. SERIES BASED ON YOUR GAMES
+        ════════════════════════════════════════════════════════════════ */}
+        <section className="pt-14 pb-20">
+          <SectionHead
+            overline="Series"
+            title={`Series from ${selectedGame.name}`}
+            color="violet"
+          />
+          <LandscapeRow items={gamesSeries} type="series" isLoading={discoverLoading} />
+        </section>
+
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          FOOTER
+      ══════════════════════════════════════════════════════════════════ */}
+      <footer className="border-t border-line py-10 px-5 sm:px-8 lg:px-12">
+        <div className="max-w-screen-xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold tracking-[0.14em] uppercase text-ink">Pellicola</p>
+            <p className="text-xs text-ink-light mt-1">
+              Discover films and series from the games you love.
+            </p>
+          </div>
+          <div className="flex items-center gap-5">
+            <Link to="/search" className="text-xs text-ink-light hover:text-ink transition-colors">Search</Link>
+            <Link to="/movies" className="text-xs text-ink-light hover:text-ink transition-colors">Platforms</Link>
+            {!isAuthenticated && (
+              <Link to="/register" className="text-xs bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-full font-medium transition-colors">
+                Get started
+              </Link>
+            )}
+          </div>
+        </div>
+      </footer>
+
     </div>
   );
 }
