@@ -9,7 +9,8 @@
       "Bash(curl -s \"http://localhost:5000/api/movies/trending\" -H \"Accept: application/json\")",
       "Bash(node -e \":*)",
       "Bash(npx eslint:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(node --input-type=module --eval \":*)"
     ]
   }
 }
