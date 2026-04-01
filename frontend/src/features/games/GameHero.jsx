@@ -1,15 +1,12 @@
-import { Link } from 'react-router-dom';
-
 /**
  * Full-width game hero banner.
- * Used on the HomePage (shows the currently selected game)
- * and on GameDetailPage (shows that page's game).
  *
  * Props:
  *   game    — game entry from GAME_CATALOG
  *   compact — reduces height for secondary contexts
+ *   onCta   — called when the primary CTA is clicked
  */
-export default function GameHero({ game, compact = false }) {
+export default function GameHero({ game, compact = false, onCta }) {
   if (!game) return null;
 
   const height = compact ? 'min(52vh, 480px)' : 'min(70vh, 640px)';
@@ -63,16 +60,18 @@ export default function GameHero({ game, compact = false }) {
 
           {/* Actions */}
           <div className="flex items-center gap-4 flex-wrap">
-            <Link
-              to={`/game/${game.id}`}
-              className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover text-white text-sm font-semibold px-5 py-2.5 rounded-full transition-colors duration-150"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              Explore Game
-            </Link>
+            {onCta && (
+              <button
+                onClick={onCta}
+                className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover text-white text-sm font-semibold px-5 py-2.5 rounded-full transition-colors duration-150"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Explore Game
+              </button>
+            )}
 
             <div className="flex items-center gap-3 text-sm text-white/50">
               {game.rating != null && (

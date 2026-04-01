@@ -10,7 +10,6 @@ import SearchPage from '@/features/search/SearchPage';
 import MoviesPage from '@/features/movies/MoviesPage';
 import LoginPage from '@/features/auth/LoginPage';
 import RegisterPage from '@/features/auth/RegisterPage';
-import GameDetailPage from '@/features/games/GameDetailPage';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import { useAuthStore } from '@/features/auth/authStore';
 import { useEffect } from 'react';
@@ -33,7 +32,7 @@ export default function App() {
         <Route path="/discover"  element={<Navigate to="/" replace />} />
 
         <Route path="/movie/:id"  element={<MovieDetailPage />} />
-        <Route path="/game/:id"   element={<GameDetailPage />} />
+        <Route path="/game/:id"   element={<Navigate to="/" replace />} />
         <Route path="/person/:id" element={<PersonPage />} />
         <Route path="/search"     element={<SearchPage />} />
         <Route path="/movies"     element={<MoviesPage />} />

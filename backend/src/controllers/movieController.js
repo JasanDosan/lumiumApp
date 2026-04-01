@@ -106,7 +106,7 @@ export const getProviders = async (req, res, next) => {
 export const searchMulti = async (req, res, next) => {
   try {
     const { q, page = 1 } = req.query;
-    if (!q?.trim()) return res.json({ movies: [], people: [] });
+    if (!q?.trim()) return res.json({ movies: [], tv: [], people: [] });
     const data = await tmdb.searchMulti(q.trim(), Number(page));
     res.json(data);
   } catch (error) {

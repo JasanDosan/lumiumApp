@@ -1,5 +1,3 @@
-import { Link } from 'react-router-dom';
-
 const FALLBACK_BG = '#1e1e22';
 
 /**
@@ -8,8 +6,7 @@ const FALLBACK_BG = '#1e1e22';
  * Props:
  *   game       — game entry from GAME_CATALOG
  *   isSelected — renders accent ring (used in library row)
- *   onClick    — if provided, renders as a button (for in-page selection).
- *                if omitted, renders as a Link to /game/:id.
+ *   onClick    — called with game.id on click
  */
 export default function GameCard({ game, isSelected = false, onClick }) {
   const inner = (
@@ -69,22 +66,14 @@ export default function GameCard({ game, isSelected = false, onClick }) {
     </>
   );
 
-  if (onClick) {
-    return (
-      <button
-        onClick={() => onClick(game.id)}
-        className="group block text-left w-full animate-fade-in"
-        aria-pressed={isSelected}
-        aria-label={`Select ${game.name}`}
-      >
-        {inner}
-      </button>
-    );
-  }
-
   return (
-    <Link to={`/game/${game.id}`} className="group block animate-fade-in">
+    <button
+      onClick={() => onClick?.(game.id)}
+      className="group block text-left w-full animate-fade-in"
+      aria-pressed={isSelected}
+      aria-label={`Select ${game.name}`}
+    >
       {inner}
-    </Link>
+    </button>
   );
 }

@@ -42,6 +42,7 @@ export const rawgService = {
       ordering:  '-added',
       page_size: count,
     });
+    // RAWG returns { count, results: [...] }
     return (data.results ?? []).map(normalizeRawgGame);
   },
 
@@ -49,6 +50,15 @@ export const rawgService = {
   getTopRated: async (count = 12) => {
     const data = await rawgGet('/games', {
       ordering:  '-rating',
+      page_size: count,
+    });
+    return (data.results ?? []).map(normalizeRawgGame);
+  },
+
+  /** Search games by name */
+  search: async (query, count = 6) => {
+    const data = await rawgGet('/games', {
+      search:    query,
       page_size: count,
     });
     return (data.results ?? []).map(normalizeRawgGame);

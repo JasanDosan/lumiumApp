@@ -244,11 +244,14 @@ export const searchMulti = async (query, page = 1) => {
   });
 
   const movies = [];
+  const tv     = [];
   const people = [];
 
   for (const item of data.results) {
     if (item.media_type === 'movie') {
       movies.push(normalizeMovie(item));
+    } else if (item.media_type === 'tv') {
+      tv.push(normalizeTV(item));
     } else if (item.media_type === 'person') {
       people.push({
         id: item.id,
@@ -263,7 +266,7 @@ export const searchMulti = async (query, page = 1) => {
     }
   }
 
-  return { movies, people };
+  return { movies, tv, people };
 };
 
 export const getPersonDetails = async (personId) => {
