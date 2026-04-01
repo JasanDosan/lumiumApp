@@ -33,7 +33,7 @@ function DiscoveryRow({ items, type, isLoading }) {
     );
   }
   if (!items.length) return (
-    <p className="text-sm text-ink-light py-3">Nothing matched this game's vibe.</p>
+    <p className="text-sm text-ink-light py-3">Nothing matched this game&apos;s vibe.</p>
   );
   return (
     <DragRow gap="gap-4">
@@ -168,33 +168,6 @@ export default function GameDetailPage() {
         {/* ════════════════════════════════════════════════════════════════
             MEDIA — game capsule art / alternate images
         ════════════════════════════════════════════════════════════════ */}
-        {(() => {
-          const steamId = game.image?.match(/apps\/(\d+)\//)?.[1];
-          if (!steamId) return null;
-          const capsuleUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${steamId}/capsule_616x353.jpg`;
-          return (
-            <section className="pt-10">
-              <SectionHead overline="Media" title="Game Media" color="default" />
-              <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-                <img
-                  src={capsuleUrl}
-                  alt={`${game.name} capsule`}
-                  className="shrink-0 h-40 rounded-xl object-cover bg-surface-high"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
-                {game.image && (
-                  <img
-                    src={game.image}
-                    alt={`${game.name} header`}
-                    className="shrink-0 h-40 rounded-xl object-cover bg-surface-high"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                )}
-              </div>
-            </section>
-          );
-        })()}
-
         <div className="border-t border-line mt-12" />
 
         {/* ════════════════════════════════════════════════════════════════

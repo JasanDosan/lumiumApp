@@ -17,7 +17,7 @@ const TYPE_CONFIG = {
   series: { label: 'SERIES', badge: 'bg-violet-500', border: 'bg-violet-500' },
 };
 
-export default function UnifiedCard({ item, type = 'movie' }) {
+export default function UnifiedCard({ item, type = 'movie', onClick }) {
   const cfg   = TYPE_CONFIG[type] ?? TYPE_CONFIG.movie;
   const title = item.title ?? item.name;
 
@@ -30,9 +30,9 @@ export default function UnifiedCard({ item, type = 'movie' }) {
   // Year (movies/series only)
   const year = item.releaseDate?.slice(0, 4);
 
-  // Href
+  // Href — suppressed for games when a custom onClick is provided
   let href = null;
-  if (type === 'game')  href = `/game/${item.id}`;
+  if (type === 'game' && !onClick) href = `/game/${item.id}`;
   if (type === 'movie') href = `/movie/${item.tmdbId}`;
   // series: no detail page → href = null
 
@@ -96,6 +96,14 @@ export default function UnifiedCard({ item, type = 'movie' }) {
                       opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
     </div>
   );
+
+  if (onClick) {
+    return (
+      <button onClick={onClick} className="block w-full text-left animate-fade-in focus:outline-none">
+        {inner}
+      </button>
+    );
+  }
 
   if (!href) {
     return (

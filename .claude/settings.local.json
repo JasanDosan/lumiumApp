@@ -10,7 +10,8 @@
       "Bash(node -e \":*)",
       "Bash(npx eslint:*)",
       "Bash(npm run:*)",
-      "Bash(node --input-type=module --eval \":*)"
+      "Bash(node --input-type=module --eval \":*)",
+      "Bash(ls C:/Users/javie/Desktop/appMovies/frontend/.env*)"
     ]
   }
 }

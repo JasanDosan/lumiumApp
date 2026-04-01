@@ -97,11 +97,6 @@ export default function GameModal({
 
   if (!shouldRender || !game) return null;
 
-  const steamId = game.image?.match(/apps\/(\d+)\//)?.[1];
-  const capsuleUrl = steamId
-    ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamId}/capsule_616x353.jpg`
-    : null;
-
   return (
     <>
       {/* ── Backdrop ───────────────────────────────────────────────────────── */}
@@ -230,31 +225,6 @@ export default function GameModal({
             />
             <DiscoveryRow items={series} type="series" isLoading={isLoading} />
           </section>
-
-          {/* ── Game Media ───────────────────────────────────────────────────── */}
-          {(capsuleUrl || game.image) && (
-            <section className="pt-14">
-              <SectionHead overline="Media" title="Game Media" />
-              <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-                {capsuleUrl && (
-                  <img
-                    src={capsuleUrl}
-                    alt={`${game.name} capsule`}
-                    className="shrink-0 h-40 rounded-xl object-cover bg-surface-high"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                )}
-                {game.image && (
-                  <img
-                    src={game.image}
-                    alt={`${game.name} header`}
-                    className="shrink-0 h-40 rounded-xl object-cover bg-surface-high"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                )}
-              </div>
-            </section>
-          )}
 
           {/* ── Similar Games ────────────────────────────────────────────────── */}
           <section className="pt-14">
