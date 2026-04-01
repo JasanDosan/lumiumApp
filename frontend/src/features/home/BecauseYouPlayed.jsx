@@ -79,6 +79,15 @@ export default function BecauseYouPlayed({
           {game.tagline && (
             <p className="text-sm text-ink-mid mt-3">{game.tagline}</p>
           )}
+          {game.meta?.mood?.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-4">
+              {game.meta.mood.map(m => (
+                <span key={m} className="text-[11px] px-2.5 py-1 rounded-full bg-white/[0.07] text-ink-mid border border-white/[0.08] capitalize">
+                  {m.replace('_', ' ')}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Mixed content row ─────────────────────────────────────────────── */}
@@ -105,12 +114,12 @@ export default function BecauseYouPlayed({
           <span className="text-[10px] text-ink-light tracking-[0.18em] uppercase mr-4">
             Switch game
           </span>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {GAME_CATALOG.slice(0, 14).map(g => (
+          <div className="flex gap-2 mt-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {GAME_CATALOG.slice(0, 16).map(g => (
               <button
                 key={g.id}
                 onClick={() => onGameChange(g.id)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-150 ${
+                className={`shrink-0 text-xs px-3 py-1.5 rounded-full border transition-all duration-150 ${
                   g.id === selectedGameId
                     ? 'bg-accent border-accent text-white font-medium'
                     : 'border-line text-ink-mid hover:border-accent/30 hover:text-ink'

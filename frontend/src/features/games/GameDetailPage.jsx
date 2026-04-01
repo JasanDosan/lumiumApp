@@ -25,7 +25,7 @@ function DiscoveryRow({ items, type, isLoading }) {
     return (
       <div className="flex gap-4 overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="shrink-0 w-64 xl:w-72">
+          <div key={i} className="shrink-0 w-72 xl:w-80">
             <div className="skeleton aspect-video rounded-xl" />
           </div>
         ))}
@@ -38,7 +38,7 @@ function DiscoveryRow({ items, type, isLoading }) {
   return (
     <DragRow gap="gap-4">
       {items.map(item => (
-        <div key={item.tmdbId ?? item.id} className="shrink-0 w-64 xl:w-72 pointer-events-auto">
+        <div key={item.tmdbId ?? item.id} className="shrink-0 w-72 xl:w-80 pointer-events-auto">
           <UnifiedCard item={item} type={type} />
         </div>
       ))}
@@ -204,7 +204,7 @@ export default function GameDetailPage() {
           <SectionHead
             overline="Films"
             title={`Movies for ${game.name} fans`}
-            subtitle="Matched by mood, theme & genre"
+            subtitle={moviesLoading ? undefined : `${relatedMovies.length} titles matched`}
             color="amber"
           />
           <DiscoveryRow items={relatedMovies} type="movie" isLoading={moviesLoading} />
@@ -217,7 +217,7 @@ export default function GameDetailPage() {
           <SectionHead
             overline="Series"
             title={`Shows that match ${game.name}`}
-            subtitle="Same energy, different screen"
+            subtitle={seriesLoading ? undefined : `${relatedSeries.length} titles matched`}
             color="violet"
           />
           <DiscoveryRow items={relatedSeries} type="series" isLoading={seriesLoading} />

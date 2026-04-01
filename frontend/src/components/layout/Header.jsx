@@ -34,12 +34,6 @@ export default function Header() {
           <nav className="hidden md:flex items-center gap-7">
             <NavLink to="/" end className={navLinkClass}>Home</NavLink>
             <NavLink to="/movies" className={navLinkClass}>Platforms</NavLink>
-            {isAuthenticated && (
-              <>
-                <NavLink to="/favorites" className={navLinkClass}>Collection</NavLink>
-                <NavLink to="/recommendations" className={navLinkClass}>For You</NavLink>
-              </>
-            )}
           </nav>
 
           {/* Auth */}
@@ -95,11 +89,7 @@ export default function Header() {
           <NavLink to="/search" className={navLinkClass} onClick={() => setMenuOpen(false)}>Search</NavLink>
           <NavLink to="/movies" className={navLinkClass} onClick={() => setMenuOpen(false)}>Platforms</NavLink>
           {isAuthenticated && (
-            <>
-              <NavLink to="/favorites" className={navLinkClass} onClick={() => setMenuOpen(false)}>Collection</NavLink>
-              <NavLink to="/recommendations" className={navLinkClass} onClick={() => setMenuOpen(false)}>For You</NavLink>
-              <NavLink to="/profile" className={navLinkClass} onClick={() => setMenuOpen(false)}>Profile</NavLink>
-            </>
+            <NavLink to="/profile" className={navLinkClass} onClick={() => setMenuOpen(false)}>Profile</NavLink>
           )}
           <div className="border-t border-line pt-4">
             {isAuthenticated ? (

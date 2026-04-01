@@ -3,37 +3,16 @@ import { Link } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
 import { tvService } from '@/services/tvService';
 import { useAuthStore } from '@/features/auth/authStore';
-import { GAME_CATALOG, translateMetaToTMDB } from '@/data/gameMovieTags';
+import { GAME_CATALOG, translateMetaToTMDB, getRelatedGames } from '@/data/gameMovieTags';
 import GameHero from '@/features/games/GameHero';
 import GameRow from '@/features/games/GameRow';
 import BecauseYouPlayed from './BecauseYouPlayed';
-import MovieRow from '@/features/movies/MovieRow';
 import UnifiedCard from '@/components/ui/UnifiedCard';
 import DragRow from '@/components/ui/DragRow';
 
 // ─── Static derived data ──────────────────────────────────────────────────────
 
 const TRENDING_GAMES = [...GAME_CATALOG].sort((a, b) => b.rating - a.rating).slice(0, 12);
-
-const DEAL_GAMES = GAME_CATALOG
-  .filter(g => g.price > 0 && g.price <= 29.99)
-  .sort((a, b) => (b.rating / b.price) - (a.rating / a.price))
-  .slice(0, 10);
-
-const DISCOVERY_GENRES = [
-  { id: 28,    label: 'Action',    emoji: '💥' },
-  { id: 27,    label: 'Horror',    emoji: '👻' },
-  { id: 878,   label: 'Sci-Fi',    emoji: '🚀' },
-  { id: 53,    label: 'Thriller',  emoji: '🔪' },
-  { id: 18,    label: 'Drama',     emoji: '🎭' },
-  { id: 14,    label: 'Fantasy',   emoji: '🧙' },
-  { id: 80,    label: 'Crime',     emoji: '🔫' },
-  { id: 35,    label: 'Comedy',    emoji: '😄' },
-  { id: 12,    label: 'Adventure', emoji: '🗺️' },
-  { id: 10752, label: 'War',       emoji: '⚔️' },
-  { id: 9648,  label: 'Mystery',   emoji: '🔍' },
-  { id: 37,    label: 'Western',   emoji: '🤠' },
-];
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
 
@@ -54,14 +33,14 @@ function getRecentGames() {
   } catch { return []; }
 }
 
-// ─── Section header helpers ───────────────────────────────────────────────────
+// ─── Section header ───────────────────────────────────────────────────────────
 
 function SectionHead({ overline, title, color = 'default', action }) {
   const colorMap = {
-    accent:  { bar: 'bg-accent',    over: 'text-accent' },
-    amber:   { bar: 'bg-amber-500', over: 'text-amber-400' },
+    accent:  { bar: 'bg-accent',     over: 'text-accent' },
+    amber:   { bar: 'bg-amber-500',  over: 'text-amber-400' },
     violet:  { bar: 'bg-violet-500', over: 'text-violet-400' },
-    default: { bar: 'bg-line',      over: 'text-ink-light' },
+    default: { bar: 'bg-line',       over: 'text-ink-light' },
   };
   const c = colorMap[color] ?? colorMap.default;
 
@@ -81,14 +60,14 @@ function SectionHead({ overline, title, color = 'default', action }) {
   );
 }
 
-// ─── LandscapeRow (local) ─────────────────────────────────────────────────────
+// ─── Cinematic landscape row (movies / series) ────────────────────────────────
 
 function LandscapeRow({ items, type, isLoading }) {
   if (isLoading) {
     return (
       <div className="flex gap-4 overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="shrink-0 w-64 xl:w-72">
+          <div key={i} className="shrink-0 w-72 xl:w-80">
             <div className="skeleton aspect-video rounded-xl" />
           </div>
         ))}
@@ -99,7 +78,7 @@ function LandscapeRow({ items, type, isLoading }) {
   return (
     <DragRow gap="gap-4">
       {items.map(item => (
-        <div key={item.tmdbId ?? item.id} className="shrink-0 w-64 xl:w-72 pointer-events-auto">
+        <div key={item.tmdbId ?? item.id} className="shrink-0 w-72 xl:w-80 pointer-events-auto">
           <UnifiedCard item={item} type={type} />
         </div>
       ))}
@@ -126,27 +105,19 @@ export default function HomePage() {
     [selectedGameId],
   );
 
-  // Featured game = highest-rated (static)
+  // Featured game = highest-rated (static editorial pick)
   const featuredGame = useMemo(() => TRENDING_GAMES[0], []);
 
+  // Games recommended based on selection
+  const recommendedGames = useMemo(
+    () => getRelatedGames(selectedGameId, 8),
+    [selectedGameId],
+  );
+
   // ── Remote data ───────────────────────────────────────────────────────────
-  const [recs, setRecs]                       = useState([]);
-  const [recsLoading, setRecsLoading]         = useState(false);
   const [gamesMovies, setGamesMovies]         = useState([]);
   const [gamesSeries, setGamesSeries]         = useState([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
-
-  // ── Fetch recommendations (auth) ──────────────────────────────────────────
-  useEffect(() => {
-    if (!isAuthenticated) { setRecs([]); return; }
-    let cancelled = false;
-    setRecsLoading(true);
-    movieService.getRecommendations()
-      .then(d => { if (!cancelled) setRecs((d.results || []).slice(0, 16)); })
-      .catch(console.error)
-      .finally(() => { if (!cancelled) setRecsLoading(false); });
-    return () => { cancelled = true; };
-  }, [isAuthenticated]);
 
   // ── Fetch movies + series for selected game ───────────────────────────────
   useEffect(() => {
@@ -177,7 +148,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-canvas">
 
       {/* ══════════════════════════════════════════════════════════════════
-          1. HERO — FEATURED GAME
+          1. HERO — FEATURED GAME (editorial pick)
       ══════════════════════════════════════════════════════════════════ */}
       <GameHero game={featuredGame} />
 
@@ -199,28 +170,30 @@ export default function HomePage() {
         )}
 
         {/* ════════════════════════════════════════════════════════════════
-            3. RECOMMENDED FOR YOU (auth users only)
+            3. RECOMMENDED GAMES
         ════════════════════════════════════════════════════════════════ */}
-        {isAuthenticated && (recsLoading || recs.length > 0) && (
-          <section className="pt-14">
-            <SectionHead
-              overline="Personalised"
-              title="Recommended for you"
-              color="accent"
-              action={
-                <Link to="/recommendations" className="text-xs text-ink-light hover:text-ink transition-colors shrink-0">
-                  See all →
-                </Link>
-              }
-            />
-            <MovieRow movies={recs} isLoading={recsLoading} showScore />
-          </section>
-        )}
+        <section className={recentGames.length > 0 ? 'pt-14' : 'pt-12'}>
+          <SectionHead
+            overline="Recommended"
+            title={`Similar to ${selectedGame.name}`}
+            color="accent"
+            action={
+              <Link to={`/game/${selectedGame.id}`} className="text-xs text-ink-light hover:text-ink transition-colors shrink-0">
+                Explore game →
+              </Link>
+            }
+          />
+          <GameRow
+            games={recommendedGames}
+            onSelect={handleGameChange}
+            cardWidth="w-44 sm:w-52"
+          />
+        </section>
 
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-          4. BECAUSE YOU PLAYED X — PRIMARY, FULL-BLEED
+          4. BECAUSE YOU PLAYED — PRIMARY DISCOVERY SECTION
       ══════════════════════════════════════════════════════════════════ */}
       <div className="mt-14">
         <BecauseYouPlayed
@@ -239,7 +212,7 @@ export default function HomePage() {
             5. TRENDING GAMES
         ════════════════════════════════════════════════════════════════ */}
         <section className="pt-14">
-          <SectionHead overline="Games" title="Trending Games" color="accent" />
+          <SectionHead overline="Games" title="Trending Games" />
           <GameRow
             games={TRENDING_GAMES}
             selectedId={selectedGameId}
@@ -249,48 +222,7 @@ export default function HomePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════
-            6. DEALS
-        ════════════════════════════════════════════════════════════════ */}
-        {DEAL_GAMES.length > 0 && (
-          <section className="pt-14">
-            <SectionHead overline="Store" title="On Sale" />
-            <GameRow
-              games={DEAL_GAMES}
-              selectedId={selectedGameId}
-              onSelect={handleGameChange}
-              cardWidth="w-44 sm:w-52"
-            />
-          </section>
-        )}
-
-        {/* ════════════════════════════════════════════════════════════════
-            7. GENRES
-        ════════════════════════════════════════════════════════════════ */}
-        <section className="pt-14">
-          <SectionHead overline="Browse" title="Explore by Genre" />
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
-            {DISCOVERY_GENRES.map(g => (
-              <Link
-                key={g.id}
-                to={`/search?q=${encodeURIComponent(g.label)}`}
-                className="flex flex-col items-center justify-center gap-2 py-5 px-3
-                           bg-surface border border-line rounded-2xl
-                           hover:border-accent/30 hover:bg-surface-high
-                           transition-all duration-200 group"
-              >
-                <span className="text-2xl group-hover:scale-110 transition-transform duration-200">
-                  {g.emoji}
-                </span>
-                <span className="text-[11px] font-semibold text-ink-mid group-hover:text-ink transition-colors">
-                  {g.label}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* ════════════════════════════════════════════════════════════════
-            8. MOVIES BASED ON YOUR GAMES
+            6. MOVIES FROM SELECTED GAME
         ════════════════════════════════════════════════════════════════ */}
         <section className="pt-14">
           <SectionHead
@@ -307,7 +239,7 @@ export default function HomePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════════
-            9. SERIES BASED ON YOUR GAMES
+            7. SERIES FROM SELECTED GAME
         ════════════════════════════════════════════════════════════════ */}
         <section className="pt-14 pb-20">
           <SectionHead
