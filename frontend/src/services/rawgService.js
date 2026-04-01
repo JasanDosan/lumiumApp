@@ -1,66 +1,44 @@
 /**
- * RAWG Video Games Database API
- * https://rawg.io/apidocs
+ * Game data service — proxied through the backend.
  *
- * Requires VITE_RAWG_API_KEY in frontend/.env
- * Get a free key at https://rawg.io/apidocs
+ * All RAWG API calls go through /api/games/* so the RAWG key stays on the
+ * server and browser CORS/env-variable issues are avoided entirely.
+ *
+ * Response shape from backend (already normalised):
+ *   { results: [{ id, name, title, type, image, emoji, rating, tags, ... }] }
  */
-
-const RAWG_BASE = 'https://api.rawg.io/api';
-const KEY = import.meta.env.VITE_RAWG_API_KEY;
-
-function normalizeRawgGame(g) {
-  return {
-    // shape compatible with UnifiedCard type="game"
-    id:     String(g.id),
-    name:   g.name,
-    image:  g.background_image ?? null,
-    emoji:  '🎮',
-    rating: g.rating ? parseFloat(g.rating.toFixed(1)) : null,
-    tags:   (g.genres ?? []).slice(0, 3).map(gen => gen.name),
-    price:  null,          // RAWG doesn't provide price
-    tagline: g.genres?.map(gen => gen.name).join(' · ') ?? '',
-    // No meta — RAWG games can't drive TMDB discovery
-    _rawg: true,
-  };
-}
-
-async function rawgGet(endpoint, params = {}) {
-  if (!KEY) throw new Error('VITE_RAWG_API_KEY not set');
-  const url = new URL(`${RAWG_BASE}${endpoint}`);
-  url.searchParams.set('key', KEY);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`RAWG ${res.status}`);
-  return res.json();
-}
+import api from './api.js';
 
 export const rawgService = {
-  /** Trending/recently-added games */
-  getTrending: async (count = 12) => {
-    const data = await rawgGet('/games', {
-      ordering:  '-added',
-      page_size: count,
-    });
-    // RAWG returns { count, results: [...] }
-    return (data.results ?? []).map(normalizeRawgGame);
-  },
 
-  /** Top-rated games */
-  getTopRated: async (count = 12) => {
-    const data = await rawgGet('/games', {
-      ordering:  '-rating',
-      page_size: count,
-    });
-    return (data.results ?? []).map(normalizeRawgGame);
-  },
-
-  /** Search games by name */
+  /** Search games by name. Returns normalised game objects. */
   search: async (query, count = 6) => {
-    const data = await rawgGet('/games', {
-      search:    query,
-      page_size: count,
+    if (!query?.trim()) return [];
+
+    const { data } = await api.get('/games/search', {
+      params: { q: query.trim(), count },
     });
-    return (data.results ?? []).map(normalizeRawgGame);
+
+    const results = data.results ?? [];
+
+    if (!results.length) {
+      console.warn(`[rawgService] search("${query}") returned 0 results`);
+    } else {
+      console.log(`[rawgService] search("${query}") → ${results.length} games`, results);
+    }
+
+    return results;
+  },
+
+  /** Trending / recently-added games. */
+  getTrending: async (count = 12) => {
+    const { data } = await api.get('/games/trending', { params: { count } });
+    return data.results ?? [];
+  },
+
+  /** Top-rated games. */
+  getTopRated: async (count = 12) => {
+    const { data } = await api.get('/games/top-rated', { params: { count } });
+    return data.results ?? [];
   },
 };

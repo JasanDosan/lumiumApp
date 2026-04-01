@@ -102,7 +102,7 @@ function HeroSearch({ onGameExpand, onCategoryClick }) {
     rawgDebounce.current = setTimeout(() => {
       rawgService.search(query, 6)
         .then(setRawgResults)
-        .catch(() => setRawgResults([]));
+        .catch((err) => { console.warn('[HeroSearch] RAWG search failed:', err.message); setRawgResults([]); });
     }, 500);
     return () => clearTimeout(rawgDebounce.current);
   }, [query]);
@@ -868,10 +868,9 @@ export default function HomePage() {
 
   // ── RAWG trending ─────────────────────────────────────────────────────────
   const [rawgGames, setRawgGames]     = useState([]);
-  const [rawgLoading, setRawgLoading] = useState(!!import.meta.env.VITE_RAWG_API_KEY);
+  const [rawgLoading, setRawgLoading] = useState(true);
 
   useEffect(() => {
-    if (!import.meta.env.VITE_RAWG_API_KEY) return;
     rawgService.getTrending(12)
       .then(setRawgGames)
       .catch(() => {})

@@ -49,7 +49,7 @@ function SearchBar() {
     rawgDebounce.current = setTimeout(() => {
       rawgService.search(query, 6)
         .then(setRawgResults)
-        .catch(() => setRawgResults([]));   // silently ignore missing key
+        .catch((err) => { console.warn('[Header] RAWG search failed:', err.message); setRawgResults([]); });
     }, 500);
     return () => clearTimeout(rawgDebounce.current);
   }, [query]);

@@ -14,6 +14,7 @@ import movieRoutes from './routes/movieRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import personRoutes from './routes/personRoutes.js';
 import tvRoutes from './routes/tvRoutes.js';
+import gameRoutes from './routes/gameRoutes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const app = express();
@@ -47,6 +48,7 @@ app.use('/api/movies', movieRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/people', personRoutes);
 app.use('/api/tv', tvRoutes);
+app.use('/api/games', gameRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', environment: process.env.NODE_ENV });
