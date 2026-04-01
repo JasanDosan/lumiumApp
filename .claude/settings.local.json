@@ -12,7 +12,8 @@
       "Bash(npm run:*)",
       "Bash(node --input-type=module --eval \":*)",
       "Bash(ls C:/Users/javie/Desktop/appMovies/frontend/.env*)",
-      "Bash(grep -v \"//\")"
+      "Bash(grep -v \"//\")",
+      "Bash(npx vite:*)"
     ]
   }
 }
