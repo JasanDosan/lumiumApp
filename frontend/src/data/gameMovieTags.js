@@ -54,7 +54,6 @@ const THEME_TO_GENRES = {
   narrative:    [18],
 };
 
-const QUALITY_MOODS  = new Set(['tension', 'dark', 'bleak', 'melancholic', 'contemplative', 'wonder', 'realism', 'prestige', 'dark_humor']);
 const POPULAR_MOODS  = new Set(['epic', 'explosive', 'fun']);
 
 /**

@@ -125,7 +125,7 @@ export default function PlayedXSection({ game, selectedGameId, onGameChange }) {
                 Series
               </p>
             </div>
-            <LandscapeRow items={series} type="tv" isLoading={seriesLoading} />
+            <LandscapeRow items={series} type="series" isLoading={seriesLoading} />
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
 import { tvService } from '@/services/tvService';
@@ -134,26 +134,22 @@ export default function HomePage() {
   const [recsLoading, setRecsLoading]         = useState(false);
   const [gamesMovies, setGamesMovies]         = useState([]);
   const [gamesSeries, setGamesSeries]         = useState([]);
-  const [discoverLoading, setDiscoverLoading] = useState(false);
-  const discoverFetchedFor                    = useRef(null);
-  const recsFetched                           = useRef(false);
+  const [discoverLoading, setDiscoverLoading] = useState(true);
 
   // ── Fetch recommendations (auth) ──────────────────────────────────────────
   useEffect(() => {
-    if (!isAuthenticated || recsFetched.current) return;
-    recsFetched.current = true;
+    if (!isAuthenticated) { setRecs([]); return; }
+    let cancelled = false;
     setRecsLoading(true);
     movieService.getRecommendations()
-      .then(d => setRecs((d.results || []).slice(0, 16)))
+      .then(d => { if (!cancelled) setRecs((d.results || []).slice(0, 16)); })
       .catch(console.error)
-      .finally(() => setRecsLoading(false));
+      .finally(() => { if (!cancelled) setRecsLoading(false); });
+    return () => { cancelled = true; };
   }, [isAuthenticated]);
 
   // ── Fetch movies + series for selected game ───────────────────────────────
   useEffect(() => {
-    if (discoverFetchedFor.current === selectedGameId) return;
-    discoverFetchedFor.current = selectedGameId;
-
     let cancelled = false;
     setDiscoverLoading(true);
     setGamesMovies([]);
@@ -174,13 +170,7 @@ export default function HomePage() {
       .finally(() => { if (!cancelled) setDiscoverLoading(false); });
 
     return () => { cancelled = true; };
-  }, [selectedGameId, selectedGame.meta]);
-
-  // When game changes via BecauseYouPlayed chip, reset fetch guard
-  const handleGameChangeWithReset = useCallback((id) => {
-    discoverFetchedFor.current = null;
-    handleGameChange(id);
-  }, [handleGameChange]);
+  }, [selectedGameId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -202,7 +192,7 @@ export default function HomePage() {
             <GameRow
               games={recentGames}
               selectedId={selectedGameId}
-              onSelect={handleGameChangeWithReset}
+              onSelect={handleGameChange}
               cardWidth="w-44 sm:w-52"
             />
           </section>
@@ -239,7 +229,7 @@ export default function HomePage() {
           series={gamesSeries}
           isLoading={discoverLoading}
           selectedGameId={selectedGameId}
-          onGameChange={handleGameChangeWithReset}
+          onGameChange={handleGameChange}
         />
       </div>
 
@@ -253,7 +243,7 @@ export default function HomePage() {
           <GameRow
             games={TRENDING_GAMES}
             selectedId={selectedGameId}
-            onSelect={handleGameChangeWithReset}
+            onSelect={handleGameChange}
             cardWidth="w-44 sm:w-52"
           />
         </section>
@@ -267,7 +257,7 @@ export default function HomePage() {
             <GameRow
               games={DEAL_GAMES}
               selectedId={selectedGameId}
-              onSelect={handleGameChangeWithReset}
+              onSelect={handleGameChange}
               cardWidth="w-44 sm:w-52"
             />
           </section>

@@ -35,8 +35,8 @@ export default function BecauseYouPlayed({
 
     const maxLen = Math.max(movies.length, series.length);
     for (let i = 0; i < maxLen; i++) {
-      if (movies[i])  result.push({ item: movies[i],  type: 'movie',  key: `movie-${movies[i].tmdbId}`  });
-      if (series[i])  result.push({ item: series[i],  type: 'series', key: `series-${series[i].tmdbId}` });
+      if (movies[i])  result.push({ item: movies[i],  type: 'movie',  key: `movie-${movies[i].tmdbId ?? i}`  });
+      if (series[i])  result.push({ item: series[i],  type: 'series', key: `series-${series[i].tmdbId ?? i}` });
       // Scatter similar games through the row
       if (i === 3 && similarGames[2]) result.push({ item: similarGames[2], type: 'game', key: `game-${similarGames[2].id}-mid` });
       if (i === 7 && similarGames[3]) result.push({ item: similarGames[3], type: 'game', key: `game-${similarGames[3].id}-late` });

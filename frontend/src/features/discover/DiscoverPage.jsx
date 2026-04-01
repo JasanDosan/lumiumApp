@@ -21,7 +21,7 @@ function parseSearchParams(sp) {
   };
 }
 
-function isDebouncedActive(f) {
+function _isDebouncedActive(f) {
   return Boolean(
     f.search ||
     f.genres?.length > 0 ||
@@ -234,7 +234,7 @@ export default function DiscoverPage() {
       .finally(() => { if (!cancelled) setGridLoading(false); });
 
     return () => { cancelled = true; };
-  }, [debouncedFilters, gridPage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debouncedFilters, gridPage]); // eslint-disable-line
 
   // ── IntersectionObserver: next page ───────────────────────────────────────
   useEffect(() => {

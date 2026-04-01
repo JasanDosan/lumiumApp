@@ -8,8 +8,9 @@ import { Link } from 'react-router-dom';
  */
 
 const TYPE_CONFIG = {
-  movie: { label: 'FILM',   ring: 'bg-amber-500',  text: 'text-amber-400' },
-  tv:    { label: 'SERIES', ring: 'bg-violet-500', text: 'text-violet-400' },
+  movie:  { label: 'FILM',   ring: 'bg-amber-500',  text: 'text-amber-400' },
+  tv:     { label: 'SERIES', ring: 'bg-violet-500', text: 'text-violet-400' },
+  series: { label: 'SERIES', ring: 'bg-violet-500', text: 'text-violet-400' },
 };
 
 export default function LandscapeCard({ item, type = 'movie' }) {

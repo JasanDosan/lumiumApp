@@ -75,7 +75,7 @@ export default function UnifiedCard({ item, type = 'movie' }) {
       {rating != null && (
         <span className="absolute top-2.5 right-2.5 text-[10px] font-semibold text-white/70
                         bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">
-          ★ {typeof rating === 'number' ? rating.toFixed(1) : rating}
+          ★ {typeof rating === 'number' ? rating.toFixed(1) : String(rating)}
         </span>
       )}
 
