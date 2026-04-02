@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
 import { personService } from '@/services/personService';
 import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import { useAuthStore } from '@/features/auth/authStore';
 import MovieRow from './MovieRow';
 import SectionWrapper from '@/components/ui/SectionWrapper';
@@ -421,7 +422,8 @@ function DetailSkeleton() {
 
 export default function MovieDetailPage() {
   const { id } = useParams();
-  const { isFavorite, add, remove } = useFavoritesStore();
+  const { add: addFav, remove: removeFav } = useFavoritesStore();
+  const { hasMovie, addMovie, removeMovie } = useLibraryStore();
   const { isAuthenticated } = useAuthStore();
 
   const [movie, setMovie]               = useState(null);
@@ -432,7 +434,7 @@ export default function MovieDetailPage() {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
 
-  const isFav = movie ? isFavorite(movie.tmdbId) : false;
+  const isFav = movie ? hasMovie(movie.tmdbId) : false;
 
   useEffect(() => {
     let cancelled = false;
@@ -493,7 +495,13 @@ export default function MovieDetailPage() {
 
   const toggleFav = () => {
     if (!movie) return;
-    isFav ? remove(movie.tmdbId) : add(movie);
+    if (isFav) {
+      removeMovie(movie.tmdbId);
+      removeFav(movie.tmdbId);
+    } else {
+      addMovie(movie);
+      addFav(movie);
+    }
   };
 
   if (loading) return <DetailSkeleton />;

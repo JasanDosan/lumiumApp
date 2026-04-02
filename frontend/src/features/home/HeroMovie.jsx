@@ -1,21 +1,28 @@
 import { Link } from 'react-router-dom';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import { useFavoritesStore } from '@/features/favorites/favoritesStore';
 import { useAuthStore } from '@/features/auth/authStore';
 
 export default function HeroMovie({ movie }) {
-  const { add, remove, isFavorite } = useFavoritesStore();
+  const { hasMovie, addMovie, removeMovie } = useLibraryStore();
+  const { add: addFav, remove: removeFav } = useFavoritesStore();
   const { isAuthenticated } = useAuthStore();
 
   if (!movie) return null;
 
-  const isFav = isFavorite(movie.tmdbId);
+  const saved = hasMovie(movie.tmdbId);
   const year = movie.releaseDate?.slice(0, 4);
   const rating = movie.rating ? movie.rating.toFixed(1) : null;
 
-  const handleFav = (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
-    if (isFav) remove(movie.tmdbId);
-    else add(movie);
+    if (saved) {
+      removeMovie(movie.tmdbId);
+      removeFav(movie.tmdbId);
+    } else {
+      addMovie(movie);
+      addFav(movie);
+    }
   };
 
   return (
@@ -54,7 +61,7 @@ export default function HeroMovie({ movie }) {
             {movie.title}
           </h1>
 
-          {/* Tagline / overview */}
+          {/* Overview */}
           {movie.overview && (
             <p className="text-sm text-white/70 leading-relaxed line-clamp-3 mb-6 max-w-md">
               {movie.overview}
@@ -74,19 +81,19 @@ export default function HeroMovie({ movie }) {
             </Link>
             {isAuthenticated && (
               <button
-                onClick={handleFav}
+                onClick={handleSave}
                 className={`inline-flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-full border transition-colors ${
-                  isFav
+                  saved
                     ? 'bg-white/10 border-white/30 text-white hover:bg-white/20'
                     : 'bg-transparent border-white/30 text-white/80 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <svg className={`w-4 h-4 ${isFav ? 'fill-white stroke-white' : 'fill-none stroke-current'}`} viewBox="0 0 24 24">
+                <svg className={`w-4 h-4 ${saved ? 'fill-white stroke-white' : 'fill-none stroke-current'}`} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                   />
                 </svg>
-                {isFav ? 'Saved' : 'Save'}
+                {saved ? 'Saved' : 'Save'}
               </button>
             )}
           </div>

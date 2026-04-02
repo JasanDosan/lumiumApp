@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import { useFavoritesStore } from '@/features/favorites/favoritesStore';
 
 const IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
@@ -9,17 +10,30 @@ const FALLBACK = '/placeholder-poster.svg';
  *
  * `to` overrides the default link target `/movie/:tmdbId`.
  * Pass `to={null}` for items with no detail page (e.g. TV shows).
+ *
+ * Save button writes to libraryStore (drives recommendations) and
+ * favoritesStore (backend sync / persistence across sessions).
  */
 export default function MovieCard({ movie, showScore = false, to }) {
-  const { isFavorite, add, remove } = useFavoritesStore();
-  const favorited = isFavorite(movie.tmdbId);
+  // libraryStore is the primary source of truth for recommendations
+  const { hasMovie, addMovie, removeMovie } = useLibraryStore();
+  // favoritesStore handles backend persistence
+  const { add: addFav, remove: removeFav } = useFavoritesStore();
+
+  const saved = hasMovie(movie.tmdbId);
   const poster = movie.posterPath ? `${IMAGE_BASE}${movie.posterPath}` : FALLBACK;
   const href = to !== undefined ? to : `/movie/${movie.tmdbId}`;
 
-  const toggleFavorite = (e) => {
+  const toggleSave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    favorited ? remove(movie.tmdbId) : add(movie);
+    if (saved) {
+      removeMovie(movie.tmdbId);
+      removeFav(movie.tmdbId);
+    } else {
+      addMovie(movie);
+      addFav(movie);
+    }
   };
 
   const inner = (
@@ -52,23 +66,23 @@ export default function MovieCard({ movie, showScore = false, to }) {
           </span>
         )}
 
-        {/* Favorite button (only for items with a detail page) */}
+        {/* Save button (library + favorites) */}
         {href && (
           <button
-            onClick={toggleFavorite}
-            aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={toggleSave}
+            aria-label={saved ? 'Remove from library' : 'Add to library'}
             className={`
               absolute top-2 right-2 p-1.5 rounded-full
               transition-all duration-200
-              ${favorited
-                ? 'opacity-100 bg-black/70 text-red-400'
-                : 'opacity-0 group-hover:opacity-100 bg-black/60 text-white/60 hover:text-red-400 backdrop-blur-sm'
+              ${saved
+                ? 'opacity-100 bg-black/70 text-accent-light'
+                : 'opacity-0 group-hover:opacity-100 bg-black/60 text-white/60 hover:text-accent-light backdrop-blur-sm'
               }
             `}
           >
-            <svg className="w-3.5 h-3.5" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
               />
             </svg>
           </button>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import { useAuthStore } from '@/features/auth/authStore';
 import { movieService } from '@/services/movieService';
 import MovieRow from '@/features/movies/MovieRow';
@@ -39,7 +39,7 @@ function computeDecades(favorites) {
 
 export default function ProfilePage() {
   const { user, logout } = useAuthStore();
-  const { favorites } = useFavoritesStore();
+  const { movies: favorites } = useLibraryStore();
 
   const [allGenres, setAllGenres]     = useState([]);
   const [recs, setRecs]               = useState([]);

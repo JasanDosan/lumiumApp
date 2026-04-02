@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
-import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import MovieGrid from '@/features/movies/MovieGrid';
 
 export default function RecommendationsPage() {
-  const { favorites } = useFavoritesStore();
+  const { movies: libraryMovies } = useLibraryStore();
   const [movies, setMovies] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const hasEnoughFavorites = favorites.length >= 2;
+  const hasEnough = libraryMovies.length >= 2;
 
   const fetchRecommendations = async () => {
     setIsLoading(true);
@@ -26,10 +26,10 @@ export default function RecommendationsPage() {
   };
 
   useEffect(() => {
-    if (hasEnoughFavorites) fetchRecommendations();
-  }, []); // eslint-disable-line
+    if (hasEnough) fetchRecommendations();
+  }, [hasEnough]); // re-run when library crosses the threshold
 
-  if (!hasEnoughFavorites) {
+  if (!hasEnough) {
     return (
       <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-20">
         <div className="max-w-xs">
@@ -37,7 +37,7 @@ export default function RecommendationsPage() {
           <h1 className="text-xl font-semibold text-ink mb-2">Add more films first</h1>
           <p className="text-sm text-ink-light leading-relaxed mb-6">
             You need at least 2 saved films.
-            You currently have {favorites.length}.
+            You currently have {libraryMovies.length}.
           </p>
           <Link to="/" className="text-sm text-ink-mid hover:text-ink transition-colors">
             Browse films →
@@ -54,10 +54,10 @@ export default function RecommendationsPage() {
         <div>
           <p className="section-label mb-1">Picked for you</p>
           <h1 className="text-2xl font-semibold text-ink">Recommendations</h1>
-          {favorites[0]?.title && (
+          {libraryMovies[0]?.title && (
             <p className="text-sm text-ink-light mt-1">
-              Because you watched <span className="text-ink-mid">{favorites[0].title}</span>
-              {favorites.length > 1 && ` + ${favorites.length - 1} other${favorites.length > 2 ? 's' : ''}`}
+              Because you watched <span className="text-ink-mid">{libraryMovies[0].title}</span>
+              {libraryMovies.length > 1 && ` + ${libraryMovies.length - 1} other${libraryMovies.length > 2 ? 's' : ''}`}
             </p>
           )}
         </div>

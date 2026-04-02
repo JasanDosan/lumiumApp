@@ -108,6 +108,18 @@ const CATEGORY_TO_TMDB_GENRES = {
 
 function HeroForYou({ featured, featuredType = 'game', supporting = [], isLoading }) {
   const [featuredExpanded, setFeaturedExpanded] = useState(false);
+  const { toggleMovie, hasMovie, toggleSeries, hasSeries } = useLibraryStore();
+
+  const handleAddToLibrary = useCallback((item, type) => {
+    if (type === 'movie') toggleMovie(item);
+    if (type === 'series') toggleSeries(item);
+  }, [toggleMovie, toggleSeries]);
+
+  const libraryCheck = useCallback((item, type) => {
+    if (type === 'movie') return hasMovie(item.tmdbId);
+    if (type === 'series') return hasSeries(item.tmdbId);
+    return false;
+  }, [hasMovie, hasSeries]);
 
   const heroTitle    = featured?.title ?? featured?.name;
   const heroImage    = featured?.image ?? featured?.backdropUrl ?? null;
@@ -182,12 +194,14 @@ function HeroForYou({ featured, featuredType = 'game', supporting = [], isLoadin
             </div>
           </div>
 
-          {/* Supporting row — expandable */}
+          {/* Supporting row — expandable with library save */}
           <div className="flex-1 min-w-0 overflow-hidden">
             <ExpandableRow
               items={supporting}
               cardWidth="w-[200px] sm:w-[220px] lg:w-[240px]"
               gap="gap-3"
+              onAddToLibrary={handleAddToLibrary}
+              libraryCheck={libraryCheck}
             />
           </div>
         </div>
@@ -208,6 +222,7 @@ function HeroForYou({ featured, featuredType = 'game', supporting = [], isLoadin
 
 function BecauseYouLike({ categoryId, games = [], movies = [], series = [], isLoading }) {
   const cat = CATEGORIES.find(c => c.id === categoryId);
+  const { toggleMovie, hasMovie, toggleSeries, hasSeries } = useLibraryStore();
 
   const mixedItems = useMemo(() => {
     const result = [];
@@ -219,6 +234,17 @@ function BecauseYouLike({ categoryId, games = [], movies = [], series = [], isLo
     }
     return result;
   }, [games, movies, series]);
+
+  const handleAddToLibrary = useCallback((item, type) => {
+    if (type === 'movie') toggleMovie(item);
+    if (type === 'series') toggleSeries(item);
+  }, [toggleMovie, toggleSeries]);
+
+  const libraryCheck = useCallback((item, type) => {
+    if (type === 'movie') return hasMovie(item.tmdbId);
+    if (type === 'series') return hasSeries(item.tmdbId);
+    return false;
+  }, [hasMovie, hasSeries]);
 
   if (!categoryId) return null;
   if (!isLoading && !mixedItems.length) return null;
@@ -256,6 +282,8 @@ function BecauseYouLike({ categoryId, games = [], movies = [], series = [], isLo
             items={mixedItems}
             cardWidth="w-48 sm:w-56"
             gap="gap-3"
+            onAddToLibrary={handleAddToLibrary}
+            libraryCheck={libraryCheck}
           />
         )}
       </div>
@@ -1088,7 +1116,7 @@ export default function HomePage() {
       .finally(() => { if (!cancelled) setRecommendedLoading(false); });
 
     return () => { cancelled = true; };
-  }, []); // run once on mount — profile is read from localStorage // eslint-disable-line react-hooks/exhaustive-deps
+  }, [myGames]); // re-run when games library changes (adding games records interactions) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Static fetches ────────────────────────────────────────────────────────
   const staticFetchDone = useRef(false);

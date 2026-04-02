@@ -1,17 +1,12 @@
+import { useLibraryStore } from '@/features/library/libraryStore';
 import { useFavoritesStore } from './favoritesStore';
 import { Link } from 'react-router-dom';
 import MovieGrid from '@/features/movies/MovieGrid';
 
 export default function FavoritesPage() {
-  const { favorites, isLoading } = useFavoritesStore();
-
-  const movies = favorites.map(f => ({
-    tmdbId: f.tmdbId,
-    title: f.title,
-    posterPath: f.posterPath,
-    rating: f.rating,
-    releaseDate: f.releaseDate,
-  }));
+  // libraryStore is the live source of truth; favoritesStore provides loading state
+  const { movies } = useLibraryStore();
+  const { isLoading } = useFavoritesStore();
 
   return (
     <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-10">
@@ -22,11 +17,11 @@ export default function FavoritesPage() {
           <h1 className="text-2xl font-semibold text-ink">Collection</h1>
           {!isLoading && (
             <p className="text-sm text-ink-light mt-1">
-              {favorites.length} {favorites.length === 1 ? 'film' : 'films'}
+              {movies.length} {movies.length === 1 ? 'film' : 'films'}
             </p>
           )}
         </div>
-        {!isLoading && favorites.length >= 2 && (
+        {!isLoading && movies.length >= 2 && (
           <Link
             to="/recommendations"
             className="inline-flex items-center gap-1.5 text-sm text-ink-mid hover:text-ink transition-colors"
@@ -42,10 +37,10 @@ export default function FavoritesPage() {
       <MovieGrid
         movies={movies}
         isLoading={isLoading}
-        emptyMessage="Nothing saved yet — start adding films."
+        emptyMessage="Nothing saved yet — browse films and hit the bookmark to save them."
       />
 
-      {!isLoading && favorites.length === 0 && (
+      {!isLoading && movies.length === 0 && (
         <div className="mt-8 text-center">
           <Link to="/" className="text-sm text-ink-mid hover:text-ink transition-colors">
             Browse films →
