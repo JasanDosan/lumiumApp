@@ -2,8 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
 import { personService } from '@/services/personService';
-import { useFavoritesStore } from '@/features/favorites/favoritesStore';
-import { useLibraryStore } from '@/features/library/libraryStore';
+import { useUserLibraryStore, normalizeMovie } from '@/features/library/libraryStore';
 import { useAuthStore } from '@/features/auth/authStore';
 import MovieRow from './MovieRow';
 import SectionWrapper from '@/components/ui/SectionWrapper';
@@ -422,8 +421,7 @@ function DetailSkeleton() {
 
 export default function MovieDetailPage() {
   const { id } = useParams();
-  const { add: addFav, remove: removeFav } = useFavoritesStore();
-  const { hasMovie, addMovie, removeMovie } = useLibraryStore();
+  const { addItem, removeItem, hasMovie } = useUserLibraryStore();
   const { isAuthenticated } = useAuthStore();
 
   const [movie, setMovie]               = useState(null);
@@ -495,13 +493,8 @@ export default function MovieDetailPage() {
 
   const toggleFav = () => {
     if (!movie) return;
-    if (isFav) {
-      removeMovie(movie.tmdbId);
-      removeFav(movie.tmdbId);
-    } else {
-      addMovie(movie);
-      addFav(movie);
-    }
+    if (isFav) removeItem(`movie_${Number(movie.tmdbId)}`);
+    else addItem(normalizeMovie(movie));
   };
 
   if (loading) return <DetailSkeleton />;

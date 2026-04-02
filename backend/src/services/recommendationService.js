@@ -119,7 +119,9 @@ export const buildRecommendations = async (favoriteTmdbIds) => {
  * Generate and persist recommendations for an authenticated user.
  */
 export const generateForUser = async (user) => {
-  const favIds = user.favorites.map(f => f.tmdbId);
+  const favIds = user.library
+    .filter(i => i.type === 'movie' && i.tmdbId)
+    .map(i => i.tmdbId);
   const recommendations = await buildRecommendations(favIds);
 
   if (recommendations.length) {

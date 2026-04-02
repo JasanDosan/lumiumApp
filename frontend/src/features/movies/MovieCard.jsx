@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useLibraryStore } from '@/features/library/libraryStore';
-import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import { useUserLibraryStore, normalizeMovie } from '@/features/library/libraryStore';
 
 const IMAGE_BASE = 'https://image.tmdb.org/t/p/w342';
 const FALLBACK = '/placeholder-poster.svg';
@@ -10,15 +9,9 @@ const FALLBACK = '/placeholder-poster.svg';
  *
  * `to` overrides the default link target `/movie/:tmdbId`.
  * Pass `to={null}` for items with no detail page (e.g. TV shows).
- *
- * Save button writes to libraryStore (drives recommendations) and
- * favoritesStore (backend sync / persistence across sessions).
  */
 export default function MovieCard({ movie, showScore = false, to }) {
-  // libraryStore is the primary source of truth for recommendations
-  const { hasMovie, addMovie, removeMovie } = useLibraryStore();
-  // favoritesStore handles backend persistence
-  const { add: addFav, remove: removeFav } = useFavoritesStore();
+  const { addItem, removeItem, hasMovie } = useUserLibraryStore();
 
   const saved = hasMovie(movie.tmdbId);
   const poster = movie.posterPath ? `${IMAGE_BASE}${movie.posterPath}` : FALLBACK;
@@ -27,13 +20,8 @@ export default function MovieCard({ movie, showScore = false, to }) {
   const toggleSave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (saved) {
-      removeMovie(movie.tmdbId);
-      removeFav(movie.tmdbId);
-    } else {
-      addMovie(movie);
-      addFav(movie);
-    }
+    if (saved) removeItem(`movie_${Number(movie.tmdbId)}`);
+    else addItem(normalizeMovie(movie));
   };
 
   const inner = (

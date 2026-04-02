@@ -1,17 +1,27 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-const favoriteMovieSchema = new mongoose.Schema({
-  tmdbId: { type: Number, required: true },
-  title: { type: String, required: true },
-  posterPath: { type: String },
-  rating: { type: Number },
-  addedAt: { type: Date, default: Date.now },
+const libraryItemSchema = new mongoose.Schema({
+  id:          { type: String, required: true },  // "game_3498" | "movie_12345" | "series_456"
+  type:        { type: String, enum: ['game', 'movie', 'series'], required: true },
+  title:       { type: String, required: true },
+  image:       { type: String, default: null },
+  rating:      { type: Number, default: null },
+  genres:      { type: [Number], default: [] },
+  tags:        { type: [String], default: [] },
+  rawId:       { type: String },
+  tmdbId:      { type: Number },
+  posterPath:  { type: String },
+  backdropUrl: { type: String },
+  posterUrl:   { type: String },
+  releaseDate: { type: String },
+  emoji:       { type: String },
+  addedAt:     { type: Date, default: Date.now },
 }, { _id: false });
 
 const recommendationHistorySchema = new mongoose.Schema({
   generatedAt: { type: Date, default: Date.now },
-  basedOn: [{ type: Number }], // tmdbIds of favorites used
+  basedOn: [{ type: Number }], // tmdbIds used
   movieIds: [{ type: Number }], // recommended tmdbIds
 }, { _id: false });
 
@@ -36,7 +46,7 @@ const userSchema = new mongoose.Schema({
     minlength: [8, 'Password must be at least 8 characters'],
     select: false,
   },
-  favorites: [favoriteMovieSchema],
+  library: { type: [libraryItemSchema], default: [] },
   recommendationHistory: {
     type: [recommendationHistorySchema],
     default: [],
@@ -59,9 +69,8 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Virtual: favorites count
-userSchema.virtual('favoritesCount').get(function () {
-  return this.favorites.length;
+userSchema.virtual('libraryCount').get(function () {
+  return this.library.length;
 });
 
 export default mongoose.model('User', userSchema);

@@ -12,8 +12,31 @@ export const findUserByEmail = (email) =>
 export const createUser = (data) =>
   User.create(data);
 
-export const updateUserFavorites = (userId, favorites) =>
-  User.findByIdAndUpdate(userId, { favorites }, { new: true, runValidators: true });
+export const pushLibraryItem = (userId, item) =>
+  User.findByIdAndUpdate(
+    userId,
+    { $push: { library: item } },
+    { new: true, runValidators: true }
+  );
+
+export const pullLibraryItem = (userId, id) =>
+  User.findByIdAndUpdate(
+    userId,
+    { $pull: { library: { id } } },
+    { new: true }
+  );
+
+export const setLibraryItemField = (userId, id, updates) => {
+  const setObj = {};
+  for (const [key, val] of Object.entries(updates)) {
+    if (key !== 'id' && key !== 'type') setObj[`library.$.${key}`] = val;
+  }
+  return User.findOneAndUpdate(
+    { _id: userId, 'library.id': id },
+    { $set: setObj },
+    { new: true, runValidators: true }
+  );
+};
 
 export const pushRecommendationHistory = (userId, historyEntry) =>
   User.findByIdAndUpdate(
@@ -22,7 +45,7 @@ export const pushRecommendationHistory = (userId, historyEntry) =>
       $push: {
         recommendationHistory: {
           $each: [historyEntry],
-          $slice: -50, // keep last 50 entries
+          $slice: -50,
         },
       },
     },

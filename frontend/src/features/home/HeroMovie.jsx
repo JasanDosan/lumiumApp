@@ -1,11 +1,9 @@
 import { Link } from 'react-router-dom';
-import { useLibraryStore } from '@/features/library/libraryStore';
-import { useFavoritesStore } from '@/features/favorites/favoritesStore';
+import { useUserLibraryStore, normalizeMovie } from '@/features/library/libraryStore';
 import { useAuthStore } from '@/features/auth/authStore';
 
 export default function HeroMovie({ movie }) {
-  const { hasMovie, addMovie, removeMovie } = useLibraryStore();
-  const { add: addFav, remove: removeFav } = useFavoritesStore();
+  const { addItem, removeItem, hasMovie } = useUserLibraryStore();
   const { isAuthenticated } = useAuthStore();
 
   if (!movie) return null;
@@ -16,13 +14,8 @@ export default function HeroMovie({ movie }) {
 
   const handleSave = (e) => {
     e.preventDefault();
-    if (saved) {
-      removeMovie(movie.tmdbId);
-      removeFav(movie.tmdbId);
-    } else {
-      addMovie(movie);
-      addFav(movie);
-    }
+    if (saved) removeItem(`movie_${Number(movie.tmdbId)}`);
+    else addItem(normalizeMovie(movie));
   };
 
   return (

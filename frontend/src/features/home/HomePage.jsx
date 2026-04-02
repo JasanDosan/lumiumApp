@@ -6,7 +6,7 @@ import { rawgService } from '@/services/rawgService';
 import { useAuthStore } from '@/features/auth/authStore';
 import { GAME_CATALOG } from '@/data/gameMovieTags';
 import { useGameStore } from '@/features/games/gameStore';
-import { useLibraryStore } from '@/features/library/libraryStore';
+import { useLibraryStore, useUserLibraryStore } from '@/features/library/libraryStore';
 import { useUserProfileStore } from '@/features/profile/userProfileStore';
 import BecauseYouPlayed from './BecauseYouPlayed';
 import UnifiedCard from '@/components/ui/UnifiedCard';
@@ -103,120 +103,6 @@ const CATEGORY_TO_TMDB_GENRES = {
   'strategy':   [36],
   'stealth':    [53, 28],
 };
-
-// ─── Hero "For You Today" ────────────────────────────────────────────────────
-
-function HeroForYou({ featured, featuredType = 'game', supporting = [], isLoading }) {
-  const [featuredExpanded, setFeaturedExpanded] = useState(false);
-  const { toggleMovie, hasMovie, toggleSeries, hasSeries } = useLibraryStore();
-
-  const handleAddToLibrary = useCallback((item, type) => {
-    if (type === 'movie') toggleMovie(item);
-    if (type === 'series') toggleSeries(item);
-  }, [toggleMovie, toggleSeries]);
-
-  const libraryCheck = useCallback((item, type) => {
-    if (type === 'movie') return hasMovie(item.tmdbId);
-    if (type === 'series') return hasSeries(item.tmdbId);
-    return false;
-  }, [hasMovie, hasSeries]);
-
-  const heroTitle    = featured?.title ?? featured?.name;
-  const heroImage    = featured?.image ?? featured?.backdropUrl ?? null;
-  const heroSubtitle = featuredType === 'game'
-    ? (featured?.tags?.slice(0, 2).join(' · ') ?? '')
-    : (featured?.releaseDate?.slice(0, 4) ?? '');
-
-  if (isLoading && !featured) {
-    return (
-      <section className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 pt-2 pb-10">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-1.5 h-1.5 rounded-full bg-line block" />
-          <div className="skeleton h-2.5 w-24 rounded" />
-          <div className="flex-1 h-px bg-line" />
-        </div>
-        <div className="flex gap-5 items-start">
-          <div className="shrink-0 w-[280px] sm:w-[320px] lg:w-[360px]">
-            <div className="skeleton rounded-2xl w-full" style={{ aspectRatio: '16/9' }} />
-            <div className="skeleton h-4 w-3/4 rounded mt-3" />
-            <div className="skeleton h-3 w-1/2 rounded mt-2" />
-          </div>
-          <div className="flex-1 min-w-0 flex gap-3 overflow-hidden">
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} className="shrink-0 w-[200px]">
-                <div className="skeleton rounded-2xl w-full" style={{ aspectRatio: '16/9' }} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (!featured) return null;
-
-  return (
-    <section className="relative overflow-hidden">
-      {/* Ambient glow from featured item */}
-      {heroImage && (
-        <div className="absolute inset-x-0 top-0 h-72 pointer-events-none overflow-hidden">
-          <img
-            src={heroImage} alt="" draggable={false}
-            className="w-full h-full object-cover object-center blur-3xl opacity-[0.13] scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-canvas/20 to-canvas" />
-        </div>
-      )}
-
-      <div className="relative max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 pt-2 pb-10">
-        {/* Label row */}
-        <div className="flex items-center gap-3 mb-6">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" style={{ boxShadow: '0 0 6px 2px rgba(var(--color-accent-rgb,0,0,0),0.4)' }} />
-          <p className="text-[10px] font-black tracking-[0.28em] uppercase text-accent">For You Today</p>
-          <div className="flex-1 h-px bg-line" />
-        </div>
-
-        {/* Content row */}
-        <div className="flex gap-5 items-start">
-          {/* Featured — larger card with inline expansion */}
-          <div className="shrink-0 w-[260px] sm:w-[300px] lg:w-[360px]">
-            <UnifiedCard
-              item={featured}
-              type={featuredType}
-              isActive={featuredExpanded}
-              onClick={() => setFeaturedExpanded(p => !p)}
-            />
-            <div className="mt-3">
-              <p className="text-base font-black text-ink leading-tight line-clamp-2">{heroTitle}</p>
-              {heroSubtitle && (
-                <p className="text-xs text-ink-mid mt-1 truncate">{heroSubtitle}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Supporting row — expandable with library save */}
-          <div className="flex-1 min-w-0 overflow-hidden">
-            <ExpandableRow
-              items={supporting}
-              cardWidth="w-[200px] sm:w-[220px] lg:w-[240px]"
-              gap="gap-3"
-              onAddToLibrary={handleAddToLibrary}
-              libraryCheck={libraryCheck}
-            />
-          </div>
-        </div>
-
-        {/* Featured card inline expansion */}
-        <InlineDetail
-          item={featured}
-          type={featuredType}
-          isOpen={featuredExpanded}
-          onClose={() => setFeaturedExpanded(false)}
-        />
-      </div>
-    </section>
-  );
-}
 
 // ─── "Because You Like" — profile-driven mixed section ───────────────────────
 
@@ -608,19 +494,93 @@ function HeroSearch({ onCategoryClick }) {
   );
 }
 
-// ─── My Games section (collapsible) ──────────────────────────────────────────
+// ─── My Library section (collapsible — games + movies + series) ──────────────
 
-function MyGamesSection({ myGames }) {
-  const [isOpen, setIsOpen]       = useState(false);
-  const [expandedId, setExpandedId] = useState(null);
-  const { removeGame } = useLibraryStore();
+function LibraryTypeLabel({ label, emoji, colorClass, count }) {
+  return (
+    <div className="flex items-center gap-2 mb-2.5">
+      <span className="text-sm">{emoji}</span>
+      <p className={`text-[10px] font-black tracking-[0.18em] uppercase ${colorClass}`}>{label}</p>
+      <span className="text-[10px] text-ink-light font-normal">{count}</span>
+    </div>
+  );
+}
+
+function LibraryGameCard({ game, isExpanded, onToggleExpand, onRemove }) {
+  return (
+    <div className="group relative shrink-0 w-40 sm:w-48">
+      <button
+        onClick={onToggleExpand}
+        className={`block w-full text-left rounded-xl overflow-hidden border-2 transition-all duration-200 ${
+          isExpanded
+            ? 'border-accent ring-2 ring-accent/20 scale-[0.97]'
+            : 'border-transparent hover:border-accent/40'
+        }`}
+        style={{ aspectRatio: '460/215' }}
+      >
+        {game.image ? (
+          <img src={game.image} alt={game.title ?? game.name} draggable={false}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+        ) : (
+          <div className="w-full h-full bg-surface-high flex items-center justify-center text-4xl">
+            {game.emoji ?? '🎮'}
+          </div>
+        )}
+      </button>
+      <button
+        onClick={onRemove}
+        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white/50 hover:text-white
+                   text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+        aria-label={`Remove ${game.title ?? game.name}`}
+      >
+        &times;
+      </button>
+      <p className="mt-1.5 text-xs font-medium text-ink truncate px-0.5">{game.title ?? game.name}</p>
+    </div>
+  );
+}
+
+function LibraryPosterCard({ item, onRemove }) {
+  const title = item.title ?? item.name ?? '?';
+  const poster = item.image ?? (item.posterPath ? `https://image.tmdb.org/t/p/w185${item.posterPath}` : null);
+  const emoji  = item.type === 'movie' ? '🎬' : '📺';
+
+  return (
+    <div className="group relative shrink-0 w-24 sm:w-28">
+      <div className="relative rounded-xl overflow-hidden border-2 border-transparent hover:border-accent/40 transition-all"
+           style={{ aspectRatio: '2/3' }}>
+        {poster ? (
+          <img src={poster} alt={title} draggable={false}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+        ) : (
+          <div className="w-full h-full bg-surface-high flex items-center justify-center text-2xl">{emoji}</div>
+        )}
+        <button
+          onClick={onRemove}
+          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white/50 hover:text-white
+                     text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+          aria-label={`Remove ${title}`}
+        >
+          &times;
+        </button>
+      </div>
+      <p className="mt-1.5 text-xs font-medium text-ink truncate">{title}</p>
+    </div>
+  );
+}
+
+function MyLibrarySection() {
+  const [isOpen, setIsOpen]         = useState(false);
+  const [expandedGameId, setExpandedGameId] = useState(null);
+  const { games, movies, series, removeItem } = useUserLibraryStore();
+
+  const total = games.length + movies.length + series.length;
+  if (!total) return null;
 
   const expandedGame = useMemo(
-    () => myGames.find(g => g.id === expandedId) ?? null,
-    [myGames, expandedId],
+    () => games.find(g => g.id === expandedGameId) ?? null,
+    [games, expandedGameId],
   );
-
-  if (!myGames.length) return null;
 
   return (
     <section className="border-t border-b border-line bg-surface">
@@ -629,60 +589,74 @@ function MyGamesSection({ myGames }) {
           onClick={() => setIsOpen(o => !o)}
           className="flex items-center gap-2 py-4 w-full text-left text-xs font-black tracking-[0.2em] uppercase text-ink-mid hover:text-ink transition-colors"
         >
-          <span>My Games</span>
+          <span>My Library</span>
           <span className={`transition-transform duration-200 text-[10px] ${isOpen ? 'rotate-180' : ''}`}>▾</span>
           <span className="ml-1 px-1.5 py-0.5 rounded-full bg-accent/10 text-accent text-[10px] font-bold">
-            {myGames.length}
+            {total}
           </span>
         </button>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateRows: isOpen ? '1fr' : '0fr',
-            transition: 'grid-template-rows 300ms ease-in-out',
-          }}
-        >
+        <div style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 300ms ease-in-out' }}>
           <div className="overflow-hidden">
-            <div className="flex gap-3 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              {myGames.map(game => (
-                <div key={game.id} className="group relative shrink-0 w-40 sm:w-48">
-                  <button
-                    onClick={() => setExpandedId(prev => prev === game.id ? null : game.id)}
-                    className={`block w-full text-left rounded-xl overflow-hidden border-2 transition-all duration-200 ${
-                      expandedId === game.id
-                        ? 'border-accent ring-2 ring-accent/20 scale-[0.97]'
-                        : 'border-transparent hover:border-accent/40'
-                    }`}
-                    style={{ aspectRatio: '460/215' }}
-                  >
-                    {game.image ? (
-                      <img src={game.image} alt={game.name} draggable={false}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-                    ) : (
-                      <div className="w-full h-full bg-surface-high flex items-center justify-center text-4xl">
-                        {game.emoji}
-                      </div>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => removeGame(game.id)}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white/50 hover:text-white
-                               text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                    aria-label={`Remove ${game.name}`}
-                  >
-                    &times;
-                  </button>
-                  <p className="mt-1.5 text-xs font-medium text-ink truncate px-0.5">{game.name}</p>
+            <div className="pb-4 space-y-5">
+
+              {/* Games */}
+              {games.length > 0 && (
+                <div>
+                  <LibraryTypeLabel label="Games" emoji="🎮" colorClass="text-accent" count={games.length} />
+                  <div className="flex gap-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                    {games.map(game => (
+                      <LibraryGameCard
+                        key={game.id}
+                        game={game}
+                        isExpanded={expandedGameId === game.id}
+                        onToggleExpand={() => setExpandedGameId(prev => prev === game.id ? null : game.id)}
+                        onRemove={() => removeItem(game.id)}
+                      />
+                    ))}
+                  </div>
+                  <InlineDetail
+                    item={expandedGame}
+                    type="game"
+                    isOpen={expandedGameId !== null}
+                    onClose={() => setExpandedGameId(null)}
+                  />
                 </div>
-              ))}
+              )}
+
+              {/* Movies */}
+              {movies.length > 0 && (
+                <div>
+                  <LibraryTypeLabel label="Movies" emoji="🎬" colorClass="text-amber-400" count={movies.length} />
+                  <div className="flex gap-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                    {movies.map(movie => (
+                      <LibraryPosterCard
+                        key={movie.id}
+                        item={movie}
+                        onRemove={() => removeItem(movie.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Series */}
+              {series.length > 0 && (
+                <div>
+                  <LibraryTypeLabel label="Series" emoji="📺" colorClass="text-violet-400" count={series.length} />
+                  <div className="flex gap-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                    {series.map(s => (
+                      <LibraryPosterCard
+                        key={s.id}
+                        item={s}
+                        onRemove={() => removeItem(s.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
-            <InlineDetail
-              item={expandedGame}
-              type="game"
-              isOpen={expandedId !== null}
-              onClose={() => setExpandedId(null)}
-            />
           </div>
         </div>
       </div>
@@ -1033,44 +1007,6 @@ export default function HomePage() {
 
   const trendingGames = rawgGames.length ? rawgGames : TOP_GAMES;
 
-  // ── Hero section: trending movies + series ────────────────────────────────
-  const [heroMovies, setHeroMovies] = useState([]);
-  const [heroSeries, setHeroSeries] = useState([]);
-
-  useEffect(() => {
-    Promise.all([
-      movieService.getTrending('week'),
-      tvService.getTrending('week'),
-    ])
-      .then(([mData, tvData]) => {
-        setHeroMovies((mData.results ?? []).slice(0, 8));
-        setHeroSeries((tvData.results ?? []).slice(0, 8));
-      })
-      .catch(() => {});
-  }, []);
-
-  // Build hero featured item + supporting mix
-  const heroFeatured = useMemo(() => {
-    if (myGames?.length > 0) return { item: myGames[0], type: 'game' };
-    if (rawgGames?.length > 0) return { item: rawgGames[0], type: 'game' };
-    return null;
-  }, [myGames, rawgGames]);
-
-  const heroSupporting = useMemo(() => {
-    const skipId = String(heroFeatured?.item?.id ?? heroFeatured?.item?.tmdbId ?? '');
-    const games  = (rawgGames ?? []).filter(g => String(g.id) !== skipId).slice(0, 5);
-    const movs   = heroMovies.slice(0, 5);
-    const ser    = heroSeries.slice(0, 5);
-    const pool   = [];
-    const maxLen = Math.max(games.length, movs.length, ser.length);
-    for (let i = 0; i < maxLen && pool.length < 8; i++) {
-      if (movs[i])  pool.push({ item: movs[i],  type: 'movie'  });
-      if (ser[i])   pool.push({ item: ser[i],   type: 'series' });
-      if (games[i]) pool.push({ item: games[i], type: 'game'   });
-    }
-    return pool;
-  }, [heroFeatured, rawgGames, heroMovies, heroSeries]);
-
   // ── Profile-driven "Because You Like" section ──────────────────────────────
   const { getTopPreference, totalInteractions } = useUserProfileStore();
 
@@ -1187,19 +1123,9 @@ export default function HomePage() {
       />
 
       {/* ══════════════════════════════════════════════════════════════════
-          1b. FOR YOU TODAY — personalized hero
+          2. MY LIBRARY (COLLAPSIBLE — games + movies + series)
       ══════════════════════════════════════════════════════════════════ */}
-      <HeroForYou
-        featured={heroFeatured?.item}
-        featuredType={heroFeatured?.type ?? 'game'}
-        supporting={heroSupporting}
-        isLoading={rawgLoading && !heroFeatured}
-      />
-
-      {/* ══════════════════════════════════════════════════════════════════
-          2. MY GAMES (COLLAPSIBLE)
-      ══════════════════════════════════════════════════════════════════ */}
-      <MyGamesSection myGames={myGames} />
+      <MyLibrarySection />
 
       {/* ══════════════════════════════════════════════════════════════════
           4. BROWSE BY CATEGORY
@@ -1489,10 +1415,7 @@ export default function HomePage() {
           5. BECAUSE YOU PLAYED
       ══════════════════════════════════════════════════════════════════ */}
       <div id="because-you-played" className="mt-14 max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-        <BecauseYouPlayed
-          selectedGameId={selectedGameId}
-          onGameChange={(id) => selectGame(id)}
-        />
+        <BecauseYouPlayed />
       </div>
 
       <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">

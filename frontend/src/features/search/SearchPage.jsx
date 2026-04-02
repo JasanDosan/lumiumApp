@@ -2,7 +2,7 @@ import { useEffect, useReducer, useRef, useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
 import { rawgService } from '@/services/rawgService';
-import { useLibraryStore } from '@/features/library/libraryStore';
+import { useUserLibraryStore, normalizeGame, normalizeMovie, normalizeSeries } from '@/features/library/libraryStore';
 import MovieCard from '@/features/movies/MovieCard';
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -69,8 +69,13 @@ function Highlight({ text, query }) {
 // ─── Game card for search results (with Add button) ──────────────────────────
 
 function SearchGameCard({ game, query }) {
-  const { toggleGame, hasGame } = useLibraryStore();
+  const { addItem, removeItem, hasGame } = useUserLibraryStore();
   const saved = hasGame(game.id);
+
+  const toggle = () => {
+    if (saved) removeItem(`game_${game.id}`);
+    else addItem(normalizeGame(game));
+  };
 
   return (
     <div className="group flex flex-col">
@@ -109,18 +114,48 @@ function SearchGameCard({ game, query }) {
         </div>
       </div>
 
-      {/* Add to My Games button */}
       <button
-        onClick={() => toggleGame(game)}
+        onClick={toggle}
         className={`mt-1.5 w-full text-[10px] font-semibold px-2 py-1.5 rounded-lg border transition-colors duration-150 ${
           saved
             ? 'bg-accent/10 border-accent/30 text-accent'
             : 'border-line text-ink-light hover:border-accent/40 hover:text-accent'
         }`}
       >
-        {saved ? '✓ In My Games' : '+ Add to My Games'}
+        {saved ? '✓ In Library' : '+ Add to Library'}
       </button>
     </div>
+  );
+}
+
+// ─── Add button for movie/series search results ───────────────────────────────
+
+function SearchMediaAddButton({ movie }) {
+  const { addItem, removeItem, hasMovie, hasSeries } = useUserLibraryStore();
+  const isTv  = movie.mediaType === 'tv';
+  const saved = isTv ? hasSeries(movie.tmdbId) : hasMovie(movie.tmdbId);
+
+  const toggle = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (saved) {
+      removeItem(`${isTv ? 'series' : 'movie'}_${Number(movie.tmdbId)}`);
+    } else {
+      addItem(isTv ? normalizeSeries(movie) : normalizeMovie(movie));
+    }
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      className={`mt-1.5 w-full text-[10px] font-semibold px-2 py-1.5 rounded-lg border transition-colors duration-150 ${
+        saved
+          ? 'bg-accent/10 border-accent/30 text-accent'
+          : 'border-line text-ink-light hover:border-accent/40 hover:text-accent'
+      }`}
+    >
+      {saved ? '✓ In Library' : '+ Add to Library'}
+    </button>
   );
 }
 
@@ -401,7 +436,10 @@ export default function SearchPage() {
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
               {state.results.map(movie => (
-                <MovieCard key={movie.tmdbId} movie={movie} />
+                <div key={movie.tmdbId} className="flex flex-col">
+                  <MovieCard movie={movie} />
+                  <SearchMediaAddButton movie={movie} />
+                </div>
               ))}
             </div>
           </div>

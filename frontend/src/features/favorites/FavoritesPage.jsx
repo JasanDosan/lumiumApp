@@ -1,12 +1,9 @@
 import { useLibraryStore } from '@/features/library/libraryStore';
-import { useFavoritesStore } from './favoritesStore';
 import { Link } from 'react-router-dom';
 import MovieGrid from '@/features/movies/MovieGrid';
 
 export default function FavoritesPage() {
-  // libraryStore is the live source of truth; favoritesStore provides loading state
-  const { movies } = useLibraryStore();
-  const { isLoading } = useFavoritesStore();
+  const { movies, isLoading } = useLibraryStore();
 
   return (
     <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-10">
