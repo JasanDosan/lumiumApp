@@ -94,9 +94,9 @@ export default function SearchBar({ query, onChange, onClear, placeholder = 'Sea
           autoComplete="off"
           className={`
             w-full pl-11 pr-10 py-3 text-sm
-            bg-white border border-line
+            bg-surface border border-line
             text-ink placeholder:text-ink-light
-            focus:outline-none focus:border-ink/30 focus:ring-1 focus:ring-ink/10
+            focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/10
             transition-all duration-150
             ${hasDropdown ? 'rounded-t-2xl rounded-b-none border-b-0' : 'rounded-full'}
           `}
@@ -116,7 +116,7 @@ export default function SearchBar({ query, onChange, onClear, placeholder = 'Sea
 
       {/* Dropdown */}
       {hasDropdown && (
-        <div className="absolute top-full left-0 right-0 z-50 bg-white border border-line border-t-0 rounded-b-2xl shadow-lg overflow-hidden">
+        <div className="absolute top-full left-0 right-0 z-50 bg-surface border border-line border-t-0 rounded-b-2xl shadow-lg overflow-hidden">
 
           {/* People */}
           {topPeople.length > 0 && (

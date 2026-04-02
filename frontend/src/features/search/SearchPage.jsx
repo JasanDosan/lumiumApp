@@ -321,14 +321,14 @@ export default function SearchPage() {
               onChange={handleInputChange}
               placeholder="Search films…"
               autoFocus
-              className="w-full pl-11 pr-20 py-3 rounded-full text-sm bg-white border border-line
+              className="w-full pl-11 pr-20 py-3 rounded-full text-sm bg-surface border border-line
                          text-ink placeholder:text-ink-light
-                         focus:outline-none focus:border-ink/30 focus:ring-1 focus:ring-ink/10"
+                         focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/10"
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-ink text-white text-xs font-medium
-                         px-4 py-1.5 rounded-full hover:bg-ink/80 transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-accent text-white text-xs font-medium
+                         px-4 py-1.5 rounded-full hover:bg-accent-hover transition-colors"
             >
               Search
             </button>

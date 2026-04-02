@@ -22,7 +22,9 @@ export default function LandscapeCard({ item, type = 'movie' }) {
   const year  = item.releaseDate?.slice(0, 4);
 
   const inner = (
-    <div className="group relative w-full overflow-hidden rounded-xl bg-surface-high"
+    <div className="group relative w-full overflow-hidden rounded-2xl bg-surface-high border border-subtle
+                    transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02]
+                    hover:border-accent/30 hover:shadow-xl"
          style={{ aspectRatio: '16/9' }}>
 
       {/* Image */}

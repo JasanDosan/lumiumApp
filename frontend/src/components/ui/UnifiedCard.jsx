@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { useGameStore } from '@/features/games/gameStore';
 
 /**
  * Universal landscape (16:9) card for game / movie / series.
@@ -8,9 +7,8 @@ import { useGameStore } from '@/features/games/gameStore';
  *
  * Interaction model:
  *   - If `onClick` is provided → all types use it (inline expansion mode).
- *   - Games with no onClick → default expandGame via store.
- *   - Movies with no onClick → navigate to /movie/:id.
- *   - Series with no onClick → non-interactive display.
+ *   - Movies with no onClick → navigate to /movie/:id (search/discover pages).
+ *   - Games/Series with no onClick → non-interactive display.
  *
  * isActive → shows accent ring (item is currently expanded).
  */
@@ -22,8 +20,6 @@ const TYPE_CONFIG = {
 };
 
 export default function UnifiedCard({ item, type = 'movie', onClick, isActive = false }) {
-  const { expandGame } = useGameStore();
-
   const cfg    = TYPE_CONFIG[type] ?? TYPE_CONFIG.movie;
   const title  = item.title ?? item.name;
   const image  = item.image ?? item.backdropUrl ?? item.posterUrl ?? null;
@@ -31,15 +27,18 @@ export default function UnifiedCard({ item, type = 'movie', onClick, isActive = 
   const year   = item.releaseDate?.slice(0, 4);
 
   // onClick overrides navigation for all types (inline expansion).
-  // Fallback: games → expandGame store, movies → Link, series → display only.
-  const handleClick = onClick ?? (type === 'game' ? () => expandGame(item.id) : null);
+  // Fallback for movies without onClick → navigate (search/discover pages).
+  const handleClick = onClick ?? null;
   const movieHref   = (!onClick && type === 'movie') ? `/movie/${item.tmdbId}` : null;
 
   const inner = (
     <div
       className={`group relative w-full overflow-hidden rounded-2xl bg-surface-high
-                 shadow-md hover:shadow-2xl transition-all duration-300
-                 ${isActive ? 'ring-2 ring-accent ring-offset-2' : ''}`}
+                 border transition-all duration-300
+                 shadow-md hover:shadow-2xl hover:-translate-y-1 hover:scale-[1.02]
+                 ${isActive
+                   ? 'ring-2 ring-accent border-accent/40 shadow-[0_0_20px_rgba(139,92,246,0.3)]'
+                   : 'border-subtle hover:border-accent/30'}`}
       style={{ aspectRatio: '16/9' }}
     >
       {image ? (
@@ -97,8 +96,7 @@ export default function UnifiedCard({ item, type = 'movie', onClick, isActive = 
     return (
       <button
         onClick={handleClick}
-        className="block w-full text-left animate-fade-in focus:outline-none
-                   transition-transform duration-300 hover:-translate-y-1"
+        className="block w-full text-left animate-fade-in focus:outline-none"
       >
         {inner}
       </button>
@@ -110,7 +108,7 @@ export default function UnifiedCard({ item, type = 'movie', onClick, isActive = 
     return (
       <Link
         to={movieHref}
-        className="block animate-fade-in transition-transform duration-300 hover:-translate-y-1"
+        className="block animate-fade-in"
       >
         {inner}
       </Link>
@@ -119,7 +117,7 @@ export default function UnifiedCard({ item, type = 'movie', onClick, isActive = 
 
   // Series / display-only
   return (
-    <div className="animate-fade-in transition-transform duration-300 hover:-translate-y-1">
+    <div className="animate-fade-in">
       {inner}
     </div>
   );

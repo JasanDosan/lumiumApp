@@ -8,21 +8,23 @@ export default {
       },
       colors: {
         // ── Dark mode base ─────────────────────────────────────────────────
-        canvas:   '#111114',       // page background
-        surface:  '#1a1a1e',       // card / panel background
-        'surface-high': '#242428', // elevated surface, hover states
+        canvas:   '#0b0b0f',       // page background
+        surface:  '#151520',       // card / panel background
+        'surface-high': '#1f1f2e', // elevated surface, hover states
         ink: {
-          DEFAULT: '#ebebeb',      // primary text
-          mid:     '#8b8b8e',      // secondary text
-          light:   '#55555a',      // muted text
-          faint:   '#2e2e32',      // placeholders / disabled
+          DEFAULT: '#ffffff',      // primary text
+          mid:     '#b3b3c6',      // secondary text
+          light:   '#6b7280',      // muted text
+          faint:   '#3f3f46',      // placeholders / disabled
         },
-        line:     '#272729',       // borders, dividers
-        // ── Accent (interactive blue) ──────────────────────────────────────
+        line:     '#1e1e2a',       // borders, dividers
+        subtle:   'rgba(255,255,255,0.08)', // subtle card borders
+        // ── Accent (purple) ────────────────────────────────────────────────
         accent: {
-          DEFAULT: '#5b8dee',
-          hover:   '#4a7de0',
-          soft:    '#151d35',
+          DEFAULT: '#8b5cf6',
+          hover:   '#a78bfa',
+          light:   '#c4b5fd',      // light purple for text/icons
+          soft:    '#1e1732',
         },
         // ── Semantic ──────────────────────────────────────────────────────
         red: {

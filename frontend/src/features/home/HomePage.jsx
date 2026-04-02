@@ -4,15 +4,44 @@ import { movieService } from '@/services/movieService';
 import { tvService } from '@/services/tvService';
 import { rawgService } from '@/services/rawgService';
 import { useAuthStore } from '@/features/auth/authStore';
-import { GAME_CATALOG, translateMetaToTMDB, getRelatedGames } from '@/data/gameMovieTags';
+import { GAME_CATALOG, translateMetaToTMDB } from '@/data/gameMovieTags';
 import { useGameStore } from '@/features/games/gameStore';
 import { useUserProfileStore } from '@/features/profile/userProfileStore';
-import GameRow from '@/features/games/GameRow';
 import BecauseYouPlayed from './BecauseYouPlayed';
 import UnifiedCard from '@/components/ui/UnifiedCard';
-import DragRow from '@/components/ui/DragRow';
 import ExpandableRow from '@/components/ui/ExpandableRow';
 import InlineDetail from '@/components/ui/InlineDetail';
+
+// ─── Library-aware recommendation filter ─────────────────────────────────────
+//
+// Combines genres from EVERY catalog game the user has added.
+// Falls back to the selected game's meta when the library is empty.
+
+function combineLibraryFilters(myGames, fallbackGame) {
+  const genreFreq = {};
+
+  myGames
+    .map(mg => GAME_CATALOG.find(g => g.id === String(mg.id)))
+    .filter(g => g?.meta)
+    .forEach(g => {
+      const f = translateMetaToTMDB(g.meta);
+      (f.genres || []).forEach(id => { genreFreq[id] = (genreFreq[id] || 0) + 1; });
+    });
+
+  const baseMeta  = fallbackGame?.meta ?? { theme: [], mood: [], pacing: [] };
+  const baseFilters = translateMetaToTMDB(baseMeta);
+
+  const combinedGenres = Object.entries(genreFreq)
+    .sort(([, a], [, b]) => b - a)
+    .map(([id]) => Number(id))
+    .slice(0, 3);
+
+  return {
+    genres:     combinedGenres.length > 0 ? combinedGenres : (baseFilters.genres || []),
+    sort_by:    baseFilters.sort_by,
+    rating_gte: baseFilters.rating_gte,
+  };
+}
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -108,6 +137,8 @@ const CATEGORY_TO_TMDB_GENRES = {
 // ─── Hero "For You Today" ────────────────────────────────────────────────────
 
 function HeroForYou({ featured, featuredType = 'game', supporting = [], isLoading }) {
+  const [featuredExpanded, setFeaturedExpanded] = useState(false);
+
   const heroTitle    = featured?.title ?? featured?.name;
   const heroImage    = featured?.image ?? featured?.backdropUrl ?? null;
   const heroSubtitle = featuredType === 'game'
@@ -165,9 +196,14 @@ function HeroForYou({ featured, featuredType = 'game', supporting = [], isLoadin
 
         {/* Content row */}
         <div className="flex gap-5 items-start">
-          {/* Featured — larger card */}
+          {/* Featured — larger card with inline expansion */}
           <div className="shrink-0 w-[260px] sm:w-[300px] lg:w-[360px]">
-            <UnifiedCard item={featured} type={featuredType} />
+            <UnifiedCard
+              item={featured}
+              type={featuredType}
+              isActive={featuredExpanded}
+              onClick={() => setFeaturedExpanded(p => !p)}
+            />
             <div className="mt-3">
               <p className="text-base font-black text-ink leading-tight line-clamp-2">{heroTitle}</p>
               {heroSubtitle && (
@@ -185,6 +221,14 @@ function HeroForYou({ featured, featuredType = 'game', supporting = [], isLoadin
             />
           </div>
         </div>
+
+        {/* Featured card inline expansion */}
+        <InlineDetail
+          item={featured}
+          type={featuredType}
+          isOpen={featuredExpanded}
+          onClose={() => setFeaturedExpanded(false)}
+        />
       </div>
     </section>
   );
@@ -273,7 +317,7 @@ function SectionHead({ overline, title, color = 'default', action }) {
           <div className={`w-0.5 h-5 ${c.bar} rounded-full shrink-0`} />
           <p className={`text-[10px] font-black tracking-[0.2em] uppercase ${c.over}`}>{overline}</p>
         </div>
-        <h2 className="text-xl font-bold text-ink leading-tight">{title}</h2>
+        <h2 className="title-lg">{title}</h2>
       </div>
       {action}
     </div>
@@ -295,7 +339,7 @@ function HeroSearch({ onCategoryClick }) {
   const debounceRef  = useRef(null);
   const rawgDebounce = useRef(null);
 
-  const { expandGame, toggleGame, hasGame } = useGameStore();
+  const { selectGame, toggleGame, hasGame } = useGameStore();
 
   // Local game filter (instant)
   const localGameResults = useMemo(() => {
@@ -357,10 +401,13 @@ function HeroSearch({ onCategoryClick }) {
   }, []);
 
   const handleGameClick = useCallback((game) => {
-    expandGame(game.id);
+    selectGame(game.id);
     setIsOpen(false);
     setQuery('');
-  }, [expandGame]);
+    setTimeout(() => {
+      document.getElementById('because-you-played')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }, [selectGame]);
 
   const handleChipClick = useCallback((catId) => {
     onCategoryClick?.(catId);
@@ -372,15 +419,15 @@ function HeroSearch({ onCategoryClick }) {
 
   return (
     <section
-      className="flex flex-col items-center justify-center px-5 sm:px-8 pt-28 pb-16"
-      style={{ minHeight: '60vh' }}
+      className="flex flex-col items-center justify-center px-5 sm:px-8 pt-24 pb-14"
+      style={{ minHeight: '56vh' }}
     >
       <div className="w-full max-w-2xl">
         {/* Headline */}
         <p className="text-[10px] font-black tracking-[0.28em] uppercase text-accent text-center mb-4">
           Pellicola
         </p>
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-ink text-center leading-tight mb-2">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-ink text-center leading-[1.05] tracking-[-0.02em] mb-3">
           Discover your next<br />
           <span className="text-accent">obsession</span>
         </h1>
@@ -404,7 +451,7 @@ function HeroSearch({ onCategoryClick }) {
               onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
               onFocus={() => setIsOpen(true)}
               placeholder="Search games, movies, series..."
-              className="w-full bg-white border border-line rounded-2xl pl-12 pr-12 py-4 text-base text-ink
+              className="w-full bg-surface border border-line rounded-2xl pl-12 pr-12 py-4 text-base text-ink
                          placeholder:text-ink-light focus:outline-none focus:border-accent/50
                          focus:ring-4 focus:ring-accent/10 shadow-sm transition-all duration-200"
             />
@@ -422,7 +469,7 @@ function HeroSearch({ onCategoryClick }) {
 
           {/* Dropdown */}
           {showDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-line rounded-2xl shadow-2xl z-[60] overflow-hidden">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-surface border border-line rounded-2xl shadow-2xl z-[60] overflow-hidden">
               {!hasResults && !searching ? (
                 <div className="px-4 py-6 text-sm text-ink-light text-center">
                   No results for &ldquo;{query}&rdquo;
@@ -550,7 +597,7 @@ function HeroSearch({ onCategoryClick }) {
             <button
               key={cat.id}
               onClick={() => handleChipClick(cat.id)}
-              className="text-xs text-ink-mid border border-line rounded-full px-3 py-1.5 bg-white
+              className="text-xs text-ink-mid border border-line rounded-full px-3 py-1.5 bg-surface
                          hover:border-accent/40 hover:text-accent transition-colors"
             >
               {cat.emoji} {cat.label}
@@ -564,14 +611,20 @@ function HeroSearch({ onCategoryClick }) {
 
 // ─── My Games section (collapsible) ──────────────────────────────────────────
 
-function MyGamesSection({ myGames, expandedGameId, onExpand }) {
-  const [isOpen, setIsOpen] = useState(false);
+function MyGamesSection({ myGames }) {
+  const [isOpen, setIsOpen]       = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
   const { removeGame } = useGameStore();
+
+  const expandedGame = useMemo(
+    () => myGames.find(g => g.id === expandedId) ?? null,
+    [myGames, expandedId],
+  );
 
   if (!myGames.length) return null;
 
   return (
-    <section className="border-t border-b border-line bg-white">
+    <section className="border-t border-b border-line bg-surface">
       <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
         <button
           onClick={() => setIsOpen(o => !o)}
@@ -592,13 +645,13 @@ function MyGamesSection({ myGames, expandedGameId, onExpand }) {
           }}
         >
           <div className="overflow-hidden">
-            <div className="flex gap-3 pb-5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            <div className="flex gap-3 pb-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               {myGames.map(game => (
                 <div key={game.id} className="group relative shrink-0 w-40 sm:w-48">
                   <button
-                    onClick={() => onExpand(game.id)}
+                    onClick={() => setExpandedId(prev => prev === game.id ? null : game.id)}
                     className={`block w-full text-left rounded-xl overflow-hidden border-2 transition-all duration-200 ${
-                      expandedGameId === game.id
+                      expandedId === game.id
                         ? 'border-accent ring-2 ring-accent/20 scale-[0.97]'
                         : 'border-transparent hover:border-accent/40'
                     }`}
@@ -625,6 +678,12 @@ function MyGamesSection({ myGames, expandedGameId, onExpand }) {
                 </div>
               ))}
             </div>
+            <InlineDetail
+              item={expandedGame}
+              type="game"
+              isOpen={expandedId !== null}
+              onClose={() => setExpandedId(null)}
+            />
           </div>
         </div>
       </div>
@@ -632,189 +691,6 @@ function MyGamesSection({ myGames, expandedGameId, onExpand }) {
   );
 }
 
-// ─── Expanded game panel ──────────────────────────────────────────────────────
-
-function ExpandedGamePanel({ game, movies, series, isLoading, isOpen }) {
-  const { collapseGame, expandGame, toggleGame, hasGame } = useGameStore();
-
-  const similarGames = useMemo(
-    () => (game ? getRelatedGames(game.id, 6) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [game?.id],
-  );
-
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateRows: isOpen ? '1fr' : '0fr',
-        transition: 'grid-template-rows 400ms cubic-bezier(0.16,1,0.3,1)',
-      }}
-    >
-      <div className="overflow-hidden">
-        {game && (
-          <div
-            style={{
-              background: '#ffffff',
-              borderRadius: '16px',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.07)',
-              border: '1px solid #e5e5e5',
-              margin: '16px 0 8px',
-              opacity: isOpen ? 1 : 0,
-              transform: isOpen ? 'translateY(0) scale(1)' : 'translateY(-12px) scale(0.99)',
-              transition: 'opacity 350ms cubic-bezier(0.16,1,0.3,1), transform 350ms cubic-bezier(0.16,1,0.3,1)',
-              willChange: 'opacity, transform',
-            }}
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4 px-6 sm:px-8 pt-6">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black tracking-[0.2em] text-accent uppercase mb-1.5">
-                  {game.tags?.[0] ?? 'Game'}
-                </p>
-                <h3 className="text-2xl sm:text-3xl font-black text-ink leading-tight truncate">
-                  {game.emoji}&nbsp;{game.name}
-                </h3>
-                {game.tagline && (
-                  <p className="text-sm text-ink-mid mt-1.5">{game.tagline}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => toggleGame(game)}
-                  className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-                    hasGame(game.id)
-                      ? 'bg-accent/10 border-accent/30 text-accent'
-                      : 'border-line text-ink-mid hover:border-accent/40 hover:text-accent'
-                  }`}
-                >
-                  {hasGame(game.id) ? '✓ In My Games' : '+ Add to My Games'}
-                </button>
-                <button
-                  onClick={collapseGame}
-                  className="w-8 h-8 flex items-center justify-center rounded-full
-                             bg-surface-high text-ink-light hover:text-ink transition-colors"
-                  aria-label="Close panel"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Meta */}
-            <div className="flex flex-wrap items-center gap-3 px-6 sm:px-8 py-4 border-b border-line">
-              {game.rating != null && (
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-black text-ink">{game.rating}</span>
-                  <span className="text-xs text-ink-light">/ 10</span>
-                </div>
-              )}
-              {game.price != null && (
-                <span className="text-sm font-semibold text-ink px-2 py-0.5 rounded bg-surface-high">
-                  {game.price === 0 ? 'Free to Play' : `$${game.price.toFixed(2)}`}
-                </span>
-              )}
-              {game.meta?.mood?.map(m => (
-                <span key={m} className="text-[11px] px-2.5 py-1 rounded-full bg-surface-high text-ink-mid border border-line capitalize">
-                  {m.replace('_', ' ')}
-                </span>
-              ))}
-              {game.description && (
-                <p className="w-full text-sm text-ink-mid leading-relaxed mt-1">{game.description}</p>
-              )}
-            </div>
-
-            {/* Content */}
-            <div className="px-6 sm:px-8 py-8 space-y-10">
-
-              {/* Movies */}
-              <div>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="w-0.5 h-5 bg-amber-500 rounded-full shrink-0" />
-                  <p className="text-[10px] font-black tracking-[0.2em] uppercase text-amber-400">Films</p>
-                </div>
-                <h4 className="text-lg font-bold text-ink mb-4">
-                  Movies for {game.name} fans
-                  {!isLoading && (
-                    <span className="ml-2 text-xs font-normal text-ink-light">{movies.length} titles</span>
-                  )}
-                </h4>
-                {isLoading ? (
-                  <div className="flex gap-4 overflow-hidden">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="shrink-0 w-64 xl:w-72">
-                        <div className="skeleton aspect-video rounded-xl" />
-                      </div>
-                    ))}
-                  </div>
-                ) : movies.length > 0 ? (
-                  <DragRow gap="gap-4">
-                    {movies.map(item => (
-                      <div key={item.tmdbId ?? item.id} className="shrink-0 w-64 xl:w-72 pointer-events-auto">
-                        <UnifiedCard item={item} type="movie" />
-                      </div>
-                    ))}
-                  </DragRow>
-                ) : (
-                  <p className="text-sm text-ink-light py-2 italic">No movies matched this game&apos;s vibe.</p>
-                )}
-              </div>
-
-              {/* Series */}
-              <div>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="w-0.5 h-5 bg-violet-500 rounded-full shrink-0" />
-                  <p className="text-[10px] font-black tracking-[0.2em] uppercase text-violet-400">Series</p>
-                </div>
-                <h4 className="text-lg font-bold text-ink mb-4">
-                  Shows that match {game.name}
-                  {!isLoading && (
-                    <span className="ml-2 text-xs font-normal text-ink-light">{series.length} titles</span>
-                  )}
-                </h4>
-                {isLoading ? (
-                  <div className="flex gap-4 overflow-hidden">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="shrink-0 w-64 xl:w-72">
-                        <div className="skeleton aspect-video rounded-xl" />
-                      </div>
-                    ))}
-                  </div>
-                ) : series.length > 0 ? (
-                  <DragRow gap="gap-4">
-                    {series.map(item => (
-                      <div key={item.tmdbId ?? item.id} className="shrink-0 w-64 xl:w-72 pointer-events-auto">
-                        <UnifiedCard item={item} type="series" />
-                      </div>
-                    ))}
-                  </DragRow>
-                ) : (
-                  <p className="text-sm text-ink-light">No series matched.</p>
-                )}
-              </div>
-
-              {/* Similar games */}
-              <div>
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="w-0.5 h-5 bg-accent rounded-full shrink-0" />
-                  <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent">Similar Games</p>
-                </div>
-                <h4 className="text-lg font-bold text-ink mb-4">You might also like</h4>
-                <GameRow
-                  games={similarGames}
-                  onSelect={(id) => expandGame(id)}
-                  cardWidth="w-40 sm:w-48"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Category card (large visual) ────────────────────────────────────────────
 
@@ -825,12 +701,12 @@ function CategoryCard({ cat, isActive, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`relative w-full overflow-hidden rounded-2xl transition-all duration-250 group border-2 ${
+      className={`relative w-full overflow-hidden rounded-2xl transition-all duration-300 group border ${
         isActive
-          ? 'border-accent shadow-lg shadow-accent/20 scale-[1.01]'
-          : 'border-transparent hover:border-accent/40 hover:shadow-md hover:-translate-y-0.5'
+          ? 'border-accent shadow-lg shadow-accent/25 scale-[1.01]'
+          : 'border-subtle hover:border-accent/40 hover:shadow-lg hover:-translate-y-1'
       }`}
-      style={{ height: '72px', background: cat.bg }}
+      style={{ height: '96px', background: cat.bg }}
     >
       {image && (
         <img
@@ -838,37 +714,37 @@ function CategoryCard({ cat, isActive, onClick }) {
           alt={cat.label}
           draggable={false}
           loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.08] opacity-60"
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.08] opacity-50"
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
       )}
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+      {/* Gradient overlay — bottom to top, cinematic */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
       {/* Active tint */}
-      {isActive && <div className="absolute inset-0 bg-accent/25" />}
-      {/* Label */}
-      <div className="absolute inset-0 flex items-center gap-3 px-4">
+      {isActive && <div className="absolute inset-0 bg-accent/20" />}
+      {/* Label — pinned to bottom */}
+      <div className="absolute bottom-0 inset-x-0 flex items-end gap-3 px-4 pb-3">
         <span className="text-2xl drop-shadow-lg shrink-0 transition-transform duration-200 group-hover:scale-110">
           {cat.emoji}
         </span>
-        <div className="min-w-0 text-left">
-          <p className={`text-sm font-black leading-tight truncate transition-colors duration-200 ${isActive ? 'text-white' : 'text-white group-hover:text-white'}`}>
+        <div className="min-w-0 text-left flex-1">
+          <p className="text-sm font-black leading-tight truncate text-white">
             {cat.label}
           </p>
-          <p className="text-[10px] text-white/50">{gamesCount} games</p>
+          <p className="text-[10px] text-white/45">{gamesCount} games</p>
         </div>
         {isActive && (
-          <div className="ml-auto shrink-0 w-5 h-5 rounded-full bg-accent flex items-center justify-center shadow-sm">
+          <div className="shrink-0 w-5 h-5 rounded-full bg-accent flex items-center justify-center shadow-sm shadow-accent/40">
             <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
           </div>
         )}
       </div>
-      {/* Left accent bar when active */}
+      {/* Bottom accent bar when active */}
       <div
-        className={`absolute left-0 inset-y-0 w-0.5 bg-accent transition-opacity duration-200 ${
-          isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'
+        className={`absolute bottom-0 inset-x-0 h-0.5 bg-accent transition-opacity duration-200 ${
+          isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-60'
         }`}
       />
     </button>
@@ -895,12 +771,14 @@ function CategoryGameItem({ game, isExpanded, onExpand }) {
     <div className="group">
       <button
         onClick={handleClick}
-        className="block w-full text-left transition-transform duration-300 hover:-translate-y-0.5"
+        className="block w-full text-left"
       >
         <div
-          className={`relative rounded-2xl overflow-hidden bg-surface-high shadow-sm hover:shadow-xl
-                      transition-all duration-300
-                      ${isExpanded ? 'ring-2 ring-accent ring-offset-1' : ''}`}
+          className={`relative rounded-2xl overflow-hidden border transition-all duration-300
+                      shadow-sm hover:shadow-xl hover:-translate-y-0.5
+                      ${isExpanded
+                        ? 'bg-surface-high ring-2 ring-accent border-accent/40 shadow-[0_0_16px_rgba(139,92,246,0.25)]'
+                        : 'bg-surface border-subtle hover:bg-surface-high hover:border-accent/40'}`}
           style={{ aspectRatio: '16/9' }}
         >
           {game.image ? (
@@ -983,7 +861,7 @@ function NewsColumn({ items, isLoading }) {
           href={article.url !== '#' ? article.url : undefined}
           target={article.url !== '#' ? '_blank' : undefined}
           rel="noopener noreferrer"
-          className="flex items-start gap-3 group hover:bg-white rounded-xl p-2 -mx-2 transition-colors"
+          className="flex items-start gap-3 group hover:bg-surface-high rounded-xl p-2 -mx-2 transition-colors"
         >
           {article.image ? (
             <img
@@ -1018,21 +896,17 @@ function NewsColumn({ items, isLoading }) {
 export default function HomePage() {
   const { isAuthenticated } = useAuthStore();
 
-  const { selectedGameId, expandedGameId, expandGame, selectGame, myGames } = useGameStore();
+  const { selectedGameId, selectGame, myGames } = useGameStore();
 
+  // Look in catalog first (has full meta for recommendations).
+  // myGames can contain RAWG games without meta — fall back to catalog[0] only
+  // if truly nothing is found.
   const selectedGame = useMemo(
-    () => GAME_CATALOG.find(g => g.id === selectedGameId) ?? GAME_CATALOG[0],
-    [selectedGameId],
+    () => GAME_CATALOG.find(g => g.id === selectedGameId)
+          ?? myGames.find(g => String(g.id) === String(selectedGameId))
+          ?? GAME_CATALOG[0],
+    [selectedGameId, myGames],
   );
-
-  const expandedGame = useMemo(() => {
-    if (!expandedGameId) return null;
-    return (
-      GAME_CATALOG.find(g => g.id === expandedGameId) ??
-      myGames.find(g => g.id === expandedGameId) ??
-      null
-    );
-  }, [expandedGameId, myGames]);
 
   // ── Category explorer — multi-select + ordering + platform + tags + mode ──
   const [selectedGenres, setSelectedGenres]             = useState([]);
@@ -1044,7 +918,6 @@ export default function HomePage() {
   const [filteredGames, setFilteredGames]               = useState([]);
   const [categoryGamesLoading, setCategoryGamesLoading] = useState(false);
   const [expandedCategoryGame, setExpandedCategoryGame] = useState(null); // { game } | null
-  const categoryPanelRef = useRef(null);
 
   const handleCategoryGameExpand = useCallback((game) => {
     setExpandedCategoryGame(prev =>
@@ -1255,10 +1128,7 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []); // run once on mount — profile is read from localStorage // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Expanded game panel ref (My Games section only — no auto-scroll) ────────
-  const gamePanelRef = useRef(null);
-
-  // ── Discover data (ExpandedGamePanel + BecauseYouPlayed) ──────────────────
+  // ── Discover data (BecauseYouPlayed) ──────────────────────────────────────
   const [gamesMovies, setGamesMovies]         = useState([]);
   const [gamesSeries, setGamesSeries]         = useState([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
@@ -1269,7 +1139,13 @@ export default function HomePage() {
     setGamesMovies([]);
     setGamesSeries([]);
 
-    const filters = translateMetaToTMDB(selectedGame.meta);
+    // Resolve selected game inline — avoids stale closure
+    const currentGame = GAME_CATALOG.find(g => g.id === selectedGameId)
+      ?? myGames.find(g => String(g.id) === String(selectedGameId))
+      ?? GAME_CATALOG[0];
+
+    // Use ALL library games to derive genres (not just the selected one)
+    const filters = combineLibraryFilters(myGames, currentGame);
 
     Promise.all([
       movieService.discover({ ...filters, page: 1 }),
@@ -1277,14 +1153,14 @@ export default function HomePage() {
     ])
       .then(([movieData, tvData]) => {
         if (cancelled) return;
-        setGamesMovies((movieData.results || []).slice(0, 16));
-        setGamesSeries((tvData.results   || []).slice(0, 16));
+        setGamesMovies((movieData?.results || []).slice(0, 16));
+        setGamesSeries((tvData?.results || tvData?.items || []).slice(0, 16));
       })
       .catch(console.error)
       .finally(() => { if (!cancelled) setDiscoverLoading(false); });
 
     return () => { cancelled = true; };
-  }, [selectedGameId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedGameId, myGames]); // re-runs when selected game OR library changes
 
   // ── Static fetches ────────────────────────────────────────────────────────
   const staticFetchDone = useRef(false);
@@ -1367,24 +1243,7 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════════════════════════════
           2. MY GAMES (COLLAPSIBLE)
       ══════════════════════════════════════════════════════════════════ */}
-      <MyGamesSection
-        myGames={myGames}
-        expandedGameId={expandedGameId}
-        onExpand={(id) => expandGame(id)}
-      />
-
-      {/* ══════════════════════════════════════════════════════════════════
-          3. EXPANDED GAME PANEL
-      ══════════════════════════════════════════════════════════════════ */}
-      <div ref={gamePanelRef} className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-        <ExpandedGamePanel
-          game={expandedGame}
-          movies={gamesMovies}
-          series={gamesSeries}
-          isLoading={discoverLoading}
-          isOpen={expandedGameId !== null}
-        />
-      </div>
+      <MyGamesSection myGames={myGames} />
 
       {/* ══════════════════════════════════════════════════════════════════
           4. BROWSE BY CATEGORY
@@ -1396,7 +1255,7 @@ export default function HomePage() {
               <div className="w-0.5 h-5 bg-accent rounded-full shrink-0" />
               <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent">Explore</p>
             </div>
-            <h2 className="text-xl font-bold text-ink leading-tight">Browse by Category</h2>
+            <h2 className="title-lg">Browse by Category</h2>
           </div>
           {anyFilterActive && (
             <button
@@ -1422,7 +1281,6 @@ export default function HomePage() {
 
         {/* Inline results panel */}
         <div
-          ref={categoryPanelRef}
           style={{
             display: 'grid',
             gridTemplateRows: anyFilterActive ? '1fr' : '0fr',
@@ -1502,10 +1360,10 @@ export default function HomePage() {
                       <select
                         value={orderBy}
                         onChange={e => setOrderBy(e.target.value)}
-                        className="appearance-none bg-white border border-line rounded-lg pl-3 pr-7 py-1.5
+                        className="appearance-none bg-surface border border-line rounded-lg pl-3 pr-7 py-1.5
                                    text-xs font-semibold text-ink cursor-pointer
                                    focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/10
-                                   transition-colors hover:border-ink/20"
+                                   transition-colors hover:border-line/60"
                       >
                         {ORDER_OPTIONS.map(o => (
                           <option key={o.value} value={o.value}>{o.label}</option>
@@ -1533,8 +1391,8 @@ export default function HomePage() {
                           onClick={() => setSelectedPlatform(prev => prev === p.value ? null : p.value)}
                           className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all duration-200 ${
                             selectedPlatform === p.value
-                              ? 'bg-ink text-white border-ink shadow-md shadow-ink/20 scale-[1.04]'
-                              : 'bg-white border-line text-ink-mid hover:border-ink/30 hover:text-ink hover:bg-canvas'
+                              ? 'bg-accent text-white border-accent shadow-md shadow-accent/30 scale-[1.04]'
+                              : 'bg-surface border-line text-ink-mid hover:border-ink/30 hover:text-ink'
                           }`}
                         >
                           {p.label}
@@ -1567,7 +1425,7 @@ export default function HomePage() {
                         className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all duration-200 ${
                           selectedGameMode === m.slug
                             ? 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/30 scale-[1.04]'
-                            : 'bg-white border-line text-ink-mid hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50'
+                            : 'bg-surface border-line text-ink-mid hover:border-amber-400 hover:text-amber-400'
                         }`}
                       >
                         {m.emoji} {m.label}
@@ -1589,7 +1447,7 @@ export default function HomePage() {
                         className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-all duration-200 ${
                           selectedTags.includes(tag.slug)
                             ? 'bg-violet-500 text-white border-violet-500 shadow-md shadow-violet-500/30 scale-[1.04]'
-                            : 'bg-white border-line text-ink-mid hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50'
+                            : 'bg-surface border-line text-ink-mid hover:border-violet-400 hover:text-violet-400'
                         }`}
                       >
                         {tag.emoji} {tag.label}
@@ -1620,26 +1478,33 @@ export default function HomePage() {
                   </p>
                 )}
 
-                {/* Results grid */}
+                {/* Results grid — accordion: InlineDetail inserted inline below each row */}
                 {!categoryGamesLoading && filteredGames.length > 0 && (
-                  <>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 gap-y-6">
-                      {filteredGames.map(game => (
-                        <CategoryGameItem
-                          key={game.id}
-                          game={game}
-                          isExpanded={expandedCategoryGame?.game?.id === game.id}
-                          onExpand={handleCategoryGameExpand}
-                        />
-                      ))}
-                    </div>
-                    <InlineDetail
-                      item={expandedCategoryGame?.game ?? null}
-                      type="game"
-                      isOpen={!!expandedCategoryGame}
-                      onClose={() => setExpandedCategoryGame(null)}
-                    />
-                  </>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 gap-y-6">
+                    {filteredGames.map(game => {
+                      const isExpanded = expandedCategoryGame?.game?.id === game.id;
+                      return (
+                        // display:contents makes wrapper invisible to grid — children participate directly
+                        <div key={game.id} className="contents">
+                          <CategoryGameItem
+                            game={game}
+                            isExpanded={isExpanded}
+                            onExpand={handleCategoryGameExpand}
+                          />
+                          {isExpanded && (
+                            <div style={{ gridColumn: '1 / -1' }}>
+                              <InlineDetail
+                                item={game}
+                                type="game"
+                                isOpen={true}
+                                onClose={() => setExpandedCategoryGame(null)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
 
                 {/* No-results state */}
@@ -1667,7 +1532,7 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════════════════════════════
           5. BECAUSE YOU PLAYED
       ══════════════════════════════════════════════════════════════════ */}
-      <div className="mt-14">
+      <div id="because-you-played" className="mt-14 max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
         <BecauseYouPlayed
           game={selectedGame}
           movies={gamesMovies}
@@ -1675,6 +1540,7 @@ export default function HomePage() {
           isLoading={discoverLoading}
           selectedGameId={selectedGameId}
           onGameChange={(id) => selectGame(id)}
+          myGames={myGames}
         />
       </div>
 
@@ -1756,7 +1622,7 @@ export default function HomePage() {
             <Link to="/search" className="text-xs text-ink-light hover:text-ink transition-colors">Search</Link>
             <Link to="/movies" className="text-xs text-ink-light hover:text-ink transition-colors">Platforms</Link>
             {!isAuthenticated && (
-              <Link to="/register" className="text-xs bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-full font-medium transition-colors">
+              <Link to="/register" className="btn-primary text-xs">
                 Get started
               </Link>
             )}

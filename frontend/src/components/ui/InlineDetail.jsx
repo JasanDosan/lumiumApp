@@ -72,9 +72,13 @@ export default function InlineDetail({ item, type, isOpen, onClose }) {
       <div className="overflow-hidden">
         {item && (
           <div
-            className="mt-3 bg-white rounded-2xl border border-line overflow-hidden"
+            className="mt-4 rounded-2xl overflow-hidden"
             style={{
-              boxShadow: '0 20px 60px rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.06)',
+              background: 'linear-gradient(180deg, rgba(139,92,246,0.12) 0%, rgba(25,25,40,0.97) 100%)',
+              border: '1px solid rgba(139,92,246,0.25)',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.6), 0 4px 16px rgba(139,92,246,0.12)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
               opacity: isOpen ? 1 : 0,
               transform: isOpen ? 'translateY(0)' : 'translateY(-10px)',
               transition: 'opacity 300ms ease, transform 300ms ease',
@@ -87,7 +91,7 @@ export default function InlineDetail({ item, type, isOpen, onClose }) {
                   src={image} alt="" draggable={false}
                   className="w-full h-full object-cover object-center"
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-white" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-[#14141e]" />
               </div>
             )}
 
@@ -131,7 +135,7 @@ export default function InlineDetail({ item, type, isOpen, onClose }) {
                   {(genres.length > 0 ? genres : gameTags).map(tag => (
                     <span key={tag}
                           className="text-[11px] px-2.5 py-1 rounded-full bg-surface-high
-                                     text-ink-mid border border-line">
+                                     text-ink-mid border border-subtle">
                       {tag}
                     </span>
                   ))}

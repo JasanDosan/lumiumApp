@@ -78,8 +78,8 @@ function GameChip({ game, onSelect }) {
     <button
       onClick={() => onSelect(game.id)}
       className="flex-shrink-0 flex flex-col items-start gap-1 w-32 sm:w-36 p-3
-                 bg-white border border-line rounded-lg text-left
-                 hover:border-ink/25 hover:shadow-sm transition-all duration-200"
+                 bg-surface border border-line rounded-lg text-left
+                 hover:border-accent/30 hover:shadow-sm transition-all duration-200"
     >
       <span className="text-2xl leading-none">{game.emoji}</span>
       <span className="text-[12px] font-medium text-ink leading-snug line-clamp-1 mt-0.5">
@@ -326,7 +326,7 @@ export default function DiscoverPage() {
             {filters.genres?.map(id => {
               const g = allGenres.find(a => a.id === id);
               return g ? (
-                <span key={id} className="text-[11px] bg-ink text-white px-2.5 py-0.5 rounded-full">
+                <span key={id} className="text-[11px] bg-accent text-white px-2.5 py-0.5 rounded-full">
                   {g.name}
                 </span>
               ) : null;
