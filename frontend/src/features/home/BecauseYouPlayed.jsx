@@ -1,23 +1,93 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { GAME_CATALOG, getRelatedGames } from '@/data/gameMovieTags';
+import { GAME_CATALOG, getRelatedGames, translateMetaToTMDB } from '@/data/gameMovieTags';
+import { movieService } from '@/services/movieService';
+import { tvService } from '@/services/tvService';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import ExpandableRow from '@/components/ui/ExpandableRow';
+
+// ─── TMDB genre → game tags mapping (for movies/series tab → related games) ────
+const TMDB_TO_GAME_TAGS = {
+  27:   ['Horror'],
+  28:   ['Action'],
+  12:   ['Adventure'],
+  14:   ['Fantasy'],
+  878:  ['Sci-Fi'],
+  53:   ['Action', 'Survival'],
+  9648: ['Mystery'],
+  18:   ['Story-Rich'],
+  36:   ['Strategy'],
+  80:   ['stealth'],
+  35:   ['Story-Rich'],
+  10751: ['Adventure'],
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Aggregate TMDB genre IDs from library items (movies or series)
+function extractGenreIds(items) {
+  const freq = {};
+  items.forEach(item => {
+    (item.genreIds ?? []).forEach(id => {
+      freq[id] = (freq[id] || 0) + 1;
+    });
+  });
+  return Object.entries(freq)
+    .sort(([, a], [, b]) => b - a)
+    .map(([id]) => Number(id))
+    .slice(0, 3);
+}
+
+// Find catalog games matching a set of TMDB genre IDs
+function gamesForGenres(genreIds) {
+  if (!genreIds.length) return GAME_CATALOG.slice(0, 8).map(g => ({ item: g, type: 'game' }));
+  const tags = new Set();
+  genreIds.forEach(gid => (TMDB_TO_GAME_TAGS[gid] ?? []).forEach(t => tags.add(t.toLowerCase())));
+  const matched = GAME_CATALOG.filter(g =>
+    g.tags?.some(t => tags.has(t.toLowerCase()))
+  ).slice(0, 10);
+  return (matched.length ? matched : GAME_CATALOG.slice(0, 8)).map(g => ({ item: g, type: 'game' }));
+}
+
+// Combine genres from ALL library games, frequency-sorted, top-3
+function combineLibraryFilters(games, fallbackGame) {
+  const freq = {};
+  games
+    .map(mg => GAME_CATALOG.find(g => g.id === mg.id) ?? mg)
+    .filter(g => g?.meta)
+    .forEach(g => {
+      const f = translateMetaToTMDB(g.meta);
+      (f.genres ?? []).forEach(id => { freq[id] = (freq[id] || 0) + 1; });
+    });
+
+  const base = translateMetaToTMDB(fallbackGame?.meta ?? { theme: [], mood: [], pacing: [] });
+  const combined = Object.entries(freq)
+    .sort(([, a], [, b]) => b - a)
+    .map(([id]) => Number(id))
+    .slice(0, 3);
+
+  return {
+    genres:     combined.length > 0 ? combined : (base.genres ?? []),
+    sort_by:    base.sort_by,
+    rating_gte: base.rating_gte,
+  };
+}
 
 // ─── Tabs config ──────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'movies',  label: 'Movies',  emoji: '🎬', activeClass: 'bg-amber-500  text-white', inactiveColor: 'text-amber-400'  },
-  { id: 'series',  label: 'Series',  emoji: '📺', activeClass: 'bg-violet-500 text-white', inactiveColor: 'text-violet-400' },
-  { id: 'games',   label: 'Games',   emoji: '🎮', activeClass: 'bg-accent     text-white', inactiveColor: 'text-accent-light' },
+  { id: 'games',  label: 'Games',  emoji: '🎮', activeClass: 'bg-accent     text-white', inactiveColor: 'text-accent-light', emptyMsg: 'Add games to your library to personalise this.' },
+  { id: 'movies', label: 'Movies', emoji: '🎬', activeClass: 'bg-amber-500  text-white', inactiveColor: 'text-amber-400',   emptyMsg: 'Save movies from recommendations to personalise this.' },
+  { id: 'series', label: 'Series', emoji: '📺', activeClass: 'bg-violet-500 text-white', inactiveColor: 'text-violet-400',  emptyMsg: 'Save series from recommendations to personalise this.' },
 ];
 
-// Tab determines which row is shown first (primary) — others follow
+// Per-tab: content order (primary type shown first with larger cards)
 const TAB_ORDER = {
+  games:  ['movies', 'series', 'games'],
   movies: ['movies', 'series', 'games'],
   series: ['series', 'movies', 'games'],
-  games:  ['games',  'movies', 'series'],
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Row label ────────────────────────────────────────────────────────────────
 
 function RowLabel({ color, label }) {
   const colors = {
@@ -49,7 +119,7 @@ function SkeletonRow({ count = 5, width = 'w-52 sm:w-60' }) {
 
 // ─── Game selector ────────────────────────────────────────────────────────────
 
-function GameSelector({ game, gameOptions, selectedGameId, onGameChange, myGames }) {
+function GameSelector({ game, gameOptions, selectedGameId, onGameChange, libraryGames }) {
   const [open, setOpen] = useState(false);
   const ref             = useRef(null);
 
@@ -62,7 +132,7 @@ function GameSelector({ game, gameOptions, selectedGameId, onGameChange, myGames
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const myGameIds = useMemo(() => new Set(myGames.map(g => String(g.id))), [myGames]);
+  const libraryIds = useMemo(() => new Set(libraryGames.map(g => String(g.id))), [libraryGames]);
 
   return (
     <div ref={ref} className="relative inline-flex flex-col items-center">
@@ -89,7 +159,7 @@ function GameSelector({ game, gameOptions, selectedGameId, onGameChange, myGames
           className="absolute top-full mt-2 z-50 rounded-2xl overflow-hidden border border-subtle shadow-2xl"
           style={{ background: '#1f1f2e', minWidth: '240px', maxWidth: '320px' }}
         >
-          {myGames.length > 0 && (
+          {libraryGames.length > 0 && (
             <p className="px-4 py-2 text-[10px] font-black tracking-[0.15em] uppercase text-ink-light border-b border-subtle">
               Your Library first
             </p>
@@ -97,7 +167,7 @@ function GameSelector({ game, gameOptions, selectedGameId, onGameChange, myGames
           <div className="max-h-72 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
             {gameOptions.map(g => {
               const isSelected = g.id === selectedGameId;
-              const inLibrary  = myGameIds.has(g.id);
+              const inLibrary  = libraryIds.has(g.id);
               return (
                 <button
                   key={g.id}
@@ -131,9 +201,9 @@ function GameSelector({ game, gameOptions, selectedGameId, onGameChange, myGames
   );
 }
 
-// ─── Content row ──────────────────────────────────────────────────────────────
+// ─── Content section ──────────────────────────────────────────────────────────
 
-function ContentRow({ type, items, isLoading, isPrimary }) {
+function ContentSection({ type, items, isLoading, isPrimary }) {
   const config = {
     movies: { label: "Movies you'll like", color: 'amber',  primaryWidth: 'w-56 sm:w-64 lg:w-72', secondaryWidth: 'w-44 sm:w-52', gap: 'gap-4', skeletonCount: 4 },
     series: { label: "Series you'll like", color: 'violet', primaryWidth: 'w-56 sm:w-64 lg:w-72', secondaryWidth: 'w-44 sm:w-52', gap: 'gap-4', skeletonCount: 4 },
@@ -141,27 +211,35 @@ function ContentRow({ type, items, isLoading, isPrimary }) {
   };
   const { label, color, primaryWidth, secondaryWidth, gap, skeletonCount } = config[type];
   const cardWidth = isPrimary ? primaryWidth : secondaryWidth;
-  const skeletonWidth = isPrimary ? primaryWidth : secondaryWidth;
 
-  const emptyMessages = {
-    movies: "No films matched this game's vibe.",
-    series: "No series matched this game's vibe.",
-    games:  '',
+  const { toggleMovie, hasMovie, toggleSeries, hasSeries } = useLibraryStore();
+
+  const getAddHandler = (item, itemType) => {
+    if (itemType === 'movie') return () => toggleMovie(item);
+    if (itemType === 'series') return () => toggleSeries(item);
+    return undefined;
+  };
+  const getLibraryCheck = (item, itemType) => {
+    if (itemType === 'movie') return hasMovie(item.tmdbId);
+    if (itemType === 'series') return hasSeries(item.tmdbId);
+    return false;
   };
 
-  if (!isLoading && !items.length && !emptyMessages[type]) return null;
+  if (!isLoading && !items.length) return null;
 
   return (
     <div>
       <RowLabel color={color} label={label} />
       {isLoading ? (
-        <SkeletonRow count={skeletonCount} width={skeletonWidth} />
-      ) : items.length > 0 ? (
-        <ExpandableRow items={items} cardWidth={cardWidth} gap={gap} />
+        <SkeletonRow count={skeletonCount} width={isPrimary ? primaryWidth : secondaryWidth} />
       ) : (
-        emptyMessages[type] && (
-          <p className="text-sm text-ink-light italic py-2">{emptyMessages[type]}</p>
-        )
+        <ExpandableRow
+          items={items}
+          cardWidth={cardWidth}
+          gap={gap}
+          onAddToLibrary={type !== 'games' ? getAddHandler : undefined}
+          libraryCheck={type !== 'games' ? getLibraryCheck : undefined}
+        />
       )}
     </div>
   );
@@ -169,43 +247,106 @@ function ContentRow({ type, items, isLoading, isPrimary }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function BecauseYouPlayed({
-  game,
-  movies = [],
-  series = [],
-  isLoading = false,
-  selectedGameId,
-  onGameChange,
-  myGames = [],
-}) {
-  const [activeTab, setActiveTab] = useState('movies');
+export default function BecauseYouPlayed({ selectedGameId, onGameChange }) {
+  const { games: libraryGames, movies: libraryMovies, series: librarySeries } = useLibraryStore();
 
-  const similarGames = useMemo(() => getRelatedGames(selectedGameId, 10), [selectedGameId]);
+  const [activeTab, setActiveTab] = useState('games');
 
-  const allContent = useMemo(() => ({
-    movies: movies.map(m => ({ item: m, type: 'movie' })),
-    series: series.map(s => ({ item: s, type: 'series' })),
-    games:  similarGames.map(g => ({ item: g, type: 'game' })),
-  }), [movies, series, similarGames]);
+  // Recommendation state — managed internally
+  const [recMovies,  setRecMovies]  = useState([]);
+  const [recSeries,  setRecSeries]  = useState([]);
+  const [recGames,   setRecGames]   = useState([]);
+  const [isLoading,  setIsLoading]  = useState(true);
 
-  // Selector: always GAME_CATALOG entries, library games sorted first
+  // Resolve selected game
+  const selectedGame = useMemo(
+    () => GAME_CATALOG.find(g => g.id === selectedGameId)
+          ?? libraryGames.find(g => String(g.id) === String(selectedGameId))
+          ?? GAME_CATALOG[0],
+    [selectedGameId, libraryGames],
+  );
+
+  // Game selector options — library games first
   const gameOptions = useMemo(() => {
-    const myIds = new Set(myGames.map(g => String(g.id)));
+    const libraryIds = new Set(libraryGames.map(g => String(g.id)));
     return [
-      ...GAME_CATALOG.filter(g => myIds.has(g.id)),
-      ...GAME_CATALOG.filter(g => !myIds.has(g.id)),
+      ...GAME_CATALOG.filter(g => libraryIds.has(g.id)),
+      ...GAME_CATALOG.filter(g => !libraryIds.has(g.id)),
     ].slice(0, 24);
-  }, [myGames]);
+  }, [libraryGames]);
 
-  if (!game) return null;
+  // ── Recommendation engine — tab + library drive the fetches ─────────────
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setRecMovies([]);
+    setRecSeries([]);
+    setRecGames([]);
 
-  const orderedTabs = TAB_ORDER[activeTab];
+    if (activeTab === 'games') {
+      // Derive filters from ALL library games (or fallback to selected game)
+      const filters = combineLibraryFilters(libraryGames, selectedGame);
+
+      Promise.all([
+        movieService.discover({ ...filters, page: 1 }),
+        tvService.discover({ genres: filters.genres, sort_by: filters.sort_by }),
+      ]).then(([mData, tvData]) => {
+        if (cancelled) return;
+        setRecMovies((mData?.results ?? []).slice(0, 16).map(m => ({ item: m, type: 'movie'  })));
+        setRecSeries((tvData?.results ?? tvData?.items ?? []).slice(0, 16).map(s => ({ item: s, type: 'series' })));
+        setRecGames(getRelatedGames(selectedGameId, 10).map(g => ({ item: g, type: 'game' })));
+      }).catch(console.error).finally(() => { if (!cancelled) setIsLoading(false); });
+
+    } else if (activeTab === 'movies') {
+      const genreIds = extractGenreIds(libraryMovies);
+      const discover = genreIds.length
+        ? { genres: genreIds, page: 1 }
+        : { sort_by: 'popularity.desc', page: 1 };
+
+      Promise.all([
+        movieService.discover(discover),
+        tvService.discover(genreIds.length ? { genres: genreIds } : { sort_by: 'popularity.desc' }),
+      ]).then(([mData, tvData]) => {
+        if (cancelled) return;
+        setRecMovies((mData?.results ?? []).slice(0, 16).map(m => ({ item: m, type: 'movie'  })));
+        setRecSeries((tvData?.results ?? tvData?.items ?? []).slice(0, 16).map(s => ({ item: s, type: 'series' })));
+        setRecGames(gamesForGenres(genreIds));
+      }).catch(console.error).finally(() => { if (!cancelled) setIsLoading(false); });
+
+    } else if (activeTab === 'series') {
+      const genreIds = extractGenreIds(librarySeries);
+      const discover = genreIds.length
+        ? { genres: genreIds }
+        : { sort_by: 'popularity.desc' };
+
+      Promise.all([
+        tvService.discover(discover),
+        movieService.discover(genreIds.length ? { genres: genreIds, page: 1 } : { sort_by: 'popularity.desc', page: 1 }),
+      ]).then(([tvData, mData]) => {
+        if (cancelled) return;
+        setRecSeries((tvData?.results ?? tvData?.items ?? []).slice(0, 16).map(s => ({ item: s, type: 'series' })));
+        setRecMovies((mData?.results ?? []).slice(0, 16).map(m => ({ item: m, type: 'movie'  })));
+        setRecGames(gamesForGenres(genreIds));
+      }).catch(console.error).finally(() => { if (!cancelled) setIsLoading(false); });
+    }
+
+    return () => { cancelled = true; };
+  // Re-fetch when: active tab changes, game selection changes, or any library section changes
+  }, [activeTab, selectedGameId, libraryGames, libraryMovies, librarySeries]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!selectedGame) return null;
+
+  const allContent = { movies: recMovies, series: recSeries, games: recGames };
+  const orderedTypes = TAB_ORDER[activeTab];
+
+  const activeTabConfig = TABS.find(t => t.id === activeTab);
+  const activeLibrary   = activeTab === 'games' ? libraryGames : activeTab === 'movies' ? libraryMovies : librarySeries;
 
   return (
     <section
       style={{
-        background: 'linear-gradient(180deg, rgba(139,92,246,0.15) 0%, rgba(11,11,15,0.9) 100%)',
-        border: '1px solid rgba(139,92,246,0.22)',
+        background: 'linear-gradient(180deg, rgba(139,92,246,0.18) 0%, rgba(11,11,15,0.95) 100%)',
+        border: '1px solid rgba(139,92,246,0.25)',
         borderRadius: '24px',
         padding: '36px 32px',
       }}
@@ -214,28 +355,28 @@ export default function BecauseYouPlayed({
       <div className="flex flex-col items-center text-center mb-6">
         <p className="text-[10px] font-black tracking-[0.28em] text-accent uppercase mb-2">
           Personalized for you
-          {myGames.length > 0 && (
+          {libraryGames.length > 0 && (
             <span className="ml-2 normal-case tracking-normal font-normal text-ink-light">
-              · {myGames.length} game{myGames.length !== 1 ? 's' : ''} in your library
+              · {libraryGames.length} game{libraryGames.length !== 1 ? 's' : ''} in library
             </span>
           )}
         </p>
         <p className="text-sm text-ink-mid mb-3">Because you played</p>
 
         <GameSelector
-          game={game}
+          game={selectedGame}
           gameOptions={gameOptions}
           selectedGameId={selectedGameId}
           onGameChange={onGameChange}
-          myGames={myGames}
+          libraryGames={libraryGames}
         />
 
-        {game.tagline && (
-          <p className="text-sm text-ink-mid mt-3 max-w-lg leading-relaxed">{game.tagline}</p>
+        {selectedGame.tagline && (
+          <p className="text-sm text-ink-mid mt-3 max-w-lg leading-relaxed">{selectedGame.tagline}</p>
         )}
-        {game.meta?.mood?.length > 0 && (
+        {selectedGame.meta?.mood?.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3 justify-center">
-            {game.meta.mood.slice(0, 5).map(m => (
+            {selectedGame.meta.mood.slice(0, 5).map(m => (
               <span key={m} className="text-[10px] px-2.5 py-0.5 rounded-full border border-subtle bg-surface text-ink-mid capitalize">
                 {m.replace('_', ' ')}
               </span>
@@ -245,31 +386,52 @@ export default function BecauseYouPlayed({
       </div>
 
       {/* ── Tabs ───────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mb-6 justify-center">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold
-                       border transition-all duration-150 ${
-              activeTab === tab.id
-                ? `${tab.activeClass} border-transparent shadow-md`
-                : `border-subtle bg-surface ${tab.inactiveColor} hover:border-accent/30`
-            }`}
-          >
-            <span>{tab.emoji}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+      <div className="flex items-center gap-2 mb-3 justify-center">
+        {TABS.map(tab => {
+          const count = tab.id === 'games'
+            ? libraryGames.length
+            : tab.id === 'movies'
+            ? libraryMovies.length
+            : librarySeries.length;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold
+                         border transition-all duration-150 ${
+                activeTab === tab.id
+                  ? `${tab.activeClass} border-transparent shadow-md`
+                  : `border-subtle bg-surface ${tab.inactiveColor} hover:border-accent/30`
+              }`}
+            >
+              <span>{tab.emoji}</span>
+              <span>{tab.label}</span>
+              {count > 0 && (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${
+                  activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-surface-high text-ink-light'
+                }`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Library hint — shown when active tab's library is empty */}
+      {!isLoading && activeLibrary.length === 0 && activeTab !== 'games' && (
+        <p className="text-center text-xs text-ink-light italic mb-4">
+          {activeTabConfig?.emptyMsg}
+        </p>
+      )}
 
       {/* ── Gradient divider ───────────────────────────────────────────────── */}
       <div className="h-px bg-gradient-to-r from-transparent via-accent/20 to-transparent mb-6" />
 
       {/* ── Content rows — ordered by active tab ───────────────────────────── */}
-      {orderedTabs.map((type, idx) => (
+      {orderedTypes.map((type, idx) => (
         <div key={type} style={{ marginTop: idx === 0 ? 0 : '28px' }}>
-          <ContentRow
+          <ContentSection
             type={type}
             items={allContent[type]}
             isLoading={isLoading}

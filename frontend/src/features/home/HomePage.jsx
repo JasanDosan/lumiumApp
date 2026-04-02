@@ -4,44 +4,14 @@ import { movieService } from '@/services/movieService';
 import { tvService } from '@/services/tvService';
 import { rawgService } from '@/services/rawgService';
 import { useAuthStore } from '@/features/auth/authStore';
-import { GAME_CATALOG, translateMetaToTMDB } from '@/data/gameMovieTags';
+import { GAME_CATALOG } from '@/data/gameMovieTags';
 import { useGameStore } from '@/features/games/gameStore';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import { useUserProfileStore } from '@/features/profile/userProfileStore';
 import BecauseYouPlayed from './BecauseYouPlayed';
 import UnifiedCard from '@/components/ui/UnifiedCard';
 import ExpandableRow from '@/components/ui/ExpandableRow';
 import InlineDetail from '@/components/ui/InlineDetail';
-
-// ─── Library-aware recommendation filter ─────────────────────────────────────
-//
-// Combines genres from EVERY catalog game the user has added.
-// Falls back to the selected game's meta when the library is empty.
-
-function combineLibraryFilters(myGames, fallbackGame) {
-  const genreFreq = {};
-
-  myGames
-    .map(mg => GAME_CATALOG.find(g => g.id === String(mg.id)))
-    .filter(g => g?.meta)
-    .forEach(g => {
-      const f = translateMetaToTMDB(g.meta);
-      (f.genres || []).forEach(id => { genreFreq[id] = (genreFreq[id] || 0) + 1; });
-    });
-
-  const baseMeta  = fallbackGame?.meta ?? { theme: [], mood: [], pacing: [] };
-  const baseFilters = translateMetaToTMDB(baseMeta);
-
-  const combinedGenres = Object.entries(genreFreq)
-    .sort(([, a], [, b]) => b - a)
-    .map(([id]) => Number(id))
-    .slice(0, 3);
-
-  return {
-    genres:     combinedGenres.length > 0 ? combinedGenres : (baseFilters.genres || []),
-    sort_by:    baseFilters.sort_by,
-    rating_gte: baseFilters.rating_gte,
-  };
-}
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -339,7 +309,8 @@ function HeroSearch({ onCategoryClick }) {
   const debounceRef  = useRef(null);
   const rawgDebounce = useRef(null);
 
-  const { selectGame, toggleGame, hasGame } = useGameStore();
+  const { selectGame } = useGameStore();
+  const { toggleGame, hasGame } = useLibraryStore();
 
   // Local game filter (instant)
   const localGameResults = useMemo(() => {
@@ -614,7 +585,7 @@ function HeroSearch({ onCategoryClick }) {
 function MyGamesSection({ myGames }) {
   const [isOpen, setIsOpen]       = useState(false);
   const [expandedId, setExpandedId] = useState(null);
-  const { removeGame } = useGameStore();
+  const { removeGame } = useLibraryStore();
 
   const expandedGame = useMemo(
     () => myGames.find(g => g.id === expandedId) ?? null,
@@ -754,7 +725,7 @@ function CategoryCard({ cat, isActive, onClick }) {
 // ─── Category game item ────────────────────────────────────────────────────────
 
 function CategoryGameItem({ game, isExpanded, onExpand }) {
-  const { toggleGame, hasGame }  = useGameStore();
+  const { toggleGame, hasGame }  = useLibraryStore();
   const { recordInteraction }    = useUserProfileStore();
 
   const handleClick = useCallback(() => {
@@ -896,17 +867,8 @@ function NewsColumn({ items, isLoading }) {
 export default function HomePage() {
   const { isAuthenticated } = useAuthStore();
 
-  const { selectedGameId, selectGame, myGames } = useGameStore();
-
-  // Look in catalog first (has full meta for recommendations).
-  // myGames can contain RAWG games without meta — fall back to catalog[0] only
-  // if truly nothing is found.
-  const selectedGame = useMemo(
-    () => GAME_CATALOG.find(g => g.id === selectedGameId)
-          ?? myGames.find(g => String(g.id) === String(selectedGameId))
-          ?? GAME_CATALOG[0],
-    [selectedGameId, myGames],
-  );
+  const { selectedGameId, selectGame } = useGameStore();
+  const { games: myGames }            = useLibraryStore();
 
   // ── Category explorer — multi-select + ordering + platform + tags + mode ──
   const [selectedGenres, setSelectedGenres]             = useState([]);
@@ -1127,40 +1089,6 @@ export default function HomePage() {
 
     return () => { cancelled = true; };
   }, []); // run once on mount — profile is read from localStorage // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Discover data (BecauseYouPlayed) ──────────────────────────────────────
-  const [gamesMovies, setGamesMovies]         = useState([]);
-  const [gamesSeries, setGamesSeries]         = useState([]);
-  const [discoverLoading, setDiscoverLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setDiscoverLoading(true);
-    setGamesMovies([]);
-    setGamesSeries([]);
-
-    // Resolve selected game inline — avoids stale closure
-    const currentGame = GAME_CATALOG.find(g => g.id === selectedGameId)
-      ?? myGames.find(g => String(g.id) === String(selectedGameId))
-      ?? GAME_CATALOG[0];
-
-    // Use ALL library games to derive genres (not just the selected one)
-    const filters = combineLibraryFilters(myGames, currentGame);
-
-    Promise.all([
-      movieService.discover({ ...filters, page: 1 }),
-      tvService.discover({ genres: filters.genres, sort_by: filters.sort_by }),
-    ])
-      .then(([movieData, tvData]) => {
-        if (cancelled) return;
-        setGamesMovies((movieData?.results || []).slice(0, 16));
-        setGamesSeries((tvData?.results || tvData?.items || []).slice(0, 16));
-      })
-      .catch(console.error)
-      .finally(() => { if (!cancelled) setDiscoverLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [selectedGameId, myGames]); // re-runs when selected game OR library changes
 
   // ── Static fetches ────────────────────────────────────────────────────────
   const staticFetchDone = useRef(false);
@@ -1534,13 +1462,8 @@ export default function HomePage() {
       ══════════════════════════════════════════════════════════════════ */}
       <div id="because-you-played" className="mt-14 max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
         <BecauseYouPlayed
-          game={selectedGame}
-          movies={gamesMovies}
-          series={gamesSeries}
-          isLoading={discoverLoading}
           selectedGameId={selectedGameId}
           onGameChange={(id) => selectGame(id)}
-          myGames={myGames}
         />
       </div>
 

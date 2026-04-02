@@ -11,6 +11,8 @@ import { Link } from 'react-router-dom';
  *   - Games/Series with no onClick → non-interactive display.
  *
  * isActive → shows accent ring (item is currently expanded).
+ * onAddToLibrary → if provided, shows a small "+" library overlay button.
+ * isInLibrary    → controls saved/unsaved state of that button.
  */
 
 const TYPE_CONFIG = {
@@ -19,15 +21,20 @@ const TYPE_CONFIG = {
   series: { label: 'SERIES', badge: 'bg-violet-500', border: 'bg-violet-500' },
 };
 
-export default function UnifiedCard({ item, type = 'movie', onClick, isActive = false }) {
+export default function UnifiedCard({
+  item,
+  type = 'movie',
+  onClick,
+  isActive = false,
+  onAddToLibrary,
+  isInLibrary = false,
+}) {
   const cfg    = TYPE_CONFIG[type] ?? TYPE_CONFIG.movie;
   const title  = item.title ?? item.name;
   const image  = item.image ?? item.backdropUrl ?? item.posterUrl ?? null;
   const rating = item.rating;
   const year   = item.releaseDate?.slice(0, 4);
 
-  // onClick overrides navigation for all types (inline expansion).
-  // Fallback for movies without onClick → navigate (search/discover pages).
   const handleClick = onClick ?? null;
   const movieHref   = (!onClick && type === 'movie') ? `/movie/${item.tmdbId}` : null;
 
@@ -61,11 +68,13 @@ export default function UnifiedCard({ item, type = 'movie', onClick, isActive = 
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
       <div className="absolute inset-0 bg-white/0 group-hover:bg-white/[0.04] transition-colors duration-300" />
 
+      {/* Type badge */}
       <span className={`absolute top-2.5 left-2.5 text-[9px] font-black tracking-[0.15em] uppercase
                        px-2 py-0.5 rounded-md text-white ${cfg.badge}`}>
         {cfg.label}
       </span>
 
+      {/* Rating */}
       {rating != null && (
         <span className="absolute top-2.5 right-2.5 text-[10px] font-semibold text-white/70
                         bg-black/50 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
@@ -73,9 +82,23 @@ export default function UnifiedCard({ item, type = 'movie', onClick, isActive = 
         </span>
       )}
 
+      {/* Library button — only rendered when onAddToLibrary is provided */}
+      {onAddToLibrary && (
+        <button
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onAddToLibrary(); }}
+          className={`absolute bottom-2.5 right-2.5 text-[9px] font-black uppercase px-2 py-0.5 rounded-md
+                     border transition-all duration-150 pointer-events-auto ${
+            isInLibrary
+              ? 'bg-accent/30 border-accent/60 text-accent-light'
+              : 'bg-black/60 border-white/20 text-white/70 hover:border-accent/50 hover:text-accent-light backdrop-blur-sm'
+          }`}
+        >
+          {isInLibrary ? '✓ Saved' : '+ Save'}
+        </button>
+      )}
+
       <div className="absolute bottom-0 inset-x-0 px-3 pb-3">
-        <p className="text-[13px] font-semibold text-white leading-snug line-clamp-2
-                      drop-shadow-sm">
+        <p className="text-[13px] font-semibold text-white leading-snug line-clamp-2 drop-shadow-sm">
           {title}
         </p>
         <p className="text-[11px] text-white/40 mt-0.5">
@@ -91,7 +114,6 @@ export default function UnifiedCard({ item, type = 'movie', onClick, isActive = 
     </div>
   );
 
-  // All types: button when onClick provided
   if (handleClick) {
     return (
       <button
@@ -103,22 +125,13 @@ export default function UnifiedCard({ item, type = 'movie', onClick, isActive = 
     );
   }
 
-  // Movies without onClick: navigate
   if (movieHref) {
     return (
-      <Link
-        to={movieHref}
-        className="block animate-fade-in"
-      >
+      <Link to={movieHref} className="block animate-fade-in">
         {inner}
       </Link>
     );
   }
 
-  // Series / display-only
-  return (
-    <div className="animate-fade-in">
-      {inner}
-    </div>
-  );
+  return <div className="animate-fade-in">{inner}</div>;
 }

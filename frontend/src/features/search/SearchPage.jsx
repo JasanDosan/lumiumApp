@@ -2,7 +2,7 @@ import { useEffect, useReducer, useRef, useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
 import { rawgService } from '@/services/rawgService';
-import { useGameStore } from '@/features/games/gameStore';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import MovieCard from '@/features/movies/MovieCard';
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ function Highlight({ text, query }) {
 // ─── Game card for search results (with Add button) ──────────────────────────
 
 function SearchGameCard({ game, query }) {
-  const { toggleGame, hasGame } = useGameStore();
+  const { toggleGame, hasGame } = useLibraryStore();
   const saved = hasGame(game.id);
 
   return (

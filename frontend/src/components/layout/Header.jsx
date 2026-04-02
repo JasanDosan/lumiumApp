@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/features/auth/authStore';
 import { useGameStore } from '@/features/games/gameStore';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import { movieService } from '@/services/movieService';
 import { rawgService } from '@/services/rawgService';
 import { GAME_CATALOG } from '@/data/gameMovieTags';
@@ -11,7 +12,8 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 function SearchBar() {
   const navigate  = useNavigate();
   const location  = useLocation();
-  const { expandGame, toggleGame, hasGame } = useGameStore();
+  const { expandGame } = useGameStore();
+  const { toggleGame, hasGame } = useLibraryStore();
 
   const [query, setQuery]           = useState('');
   const [isOpen, setIsOpen]         = useState(false);

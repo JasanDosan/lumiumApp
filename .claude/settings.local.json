@@ -15,7 +15,8 @@
       "Bash(grep -v \"//\")",
       "Bash(npx vite:*)",
       "Bash(curl -s \"https://api.rawg.io/api/games?key=5c1b60035d0447c18d83762d2883d8fe&search=zelda&page_size=3\")",
-      "Bash(node -e \"const v = require\\(''./package.json''\\); console.log\\(''vite:'', v.dependencies?.vite || v.devDependencies?.vite\\); console.log\\(''react:'', v.dependencies?.react\\)\")"
+      "Bash(node -e \"const v = require\\(''./package.json''\\); console.log\\(''vite:'', v.dependencies?.vite || v.devDependencies?.vite\\); console.log\\(''react:'', v.dependencies?.react\\)\")",
+      "Bash(find C:UsersjavieDesktopappMoviesfrontendsrcfeatures -name *Store.js -o -name *store.js)"
     ]
   }
 }

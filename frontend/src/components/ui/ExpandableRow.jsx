@@ -8,14 +8,18 @@ import InlineDetail from './InlineDetail';
  * with unified inline expansion.
  *
  * Props:
- *   items      — [{ item, type }]  where type is 'game' | 'movie' | 'series'
- *   cardWidth  — Tailwind class for card width (default 'w-48 sm:w-56')
- *   gap        — Tailwind gap class (default 'gap-3')
+ *   items            — [{ item, type }]  where type is 'game' | 'movie' | 'series'
+ *   cardWidth        — Tailwind class for card width (default 'w-48 sm:w-56')
+ *   gap              — Tailwind gap class (default 'gap-3')
+ *   onAddToLibrary   — optional (item, type) => void — enables library button on each card
+ *   libraryCheck     — optional (item, type) => bool — returns true if item is already saved
  */
 export default function ExpandableRow({
   items = [],
   cardWidth = 'w-48 sm:w-56',
   gap = 'gap-3',
+  onAddToLibrary,
+  libraryCheck,
 }) {
   const [expanded, setExpanded] = useState(null); // { item, type, key } | null
 
@@ -40,6 +44,8 @@ export default function ExpandableRow({
                 type={type}
                 onClick={() => handleClick(item, type)}
                 isActive={isActive}
+                onAddToLibrary={onAddToLibrary ? () => onAddToLibrary(item, type) : undefined}
+                isInLibrary={libraryCheck ? libraryCheck(item, type) : false}
               />
             </div>
           );
