@@ -11,6 +11,8 @@ import GameRow from '@/features/games/GameRow';
 import BecauseYouPlayed from './BecauseYouPlayed';
 import UnifiedCard from '@/components/ui/UnifiedCard';
 import DragRow from '@/components/ui/DragRow';
+import ExpandableRow from '@/components/ui/ExpandableRow';
+import InlineDetail from '@/components/ui/InlineDetail';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -174,18 +176,13 @@ function HeroForYou({ featured, featuredType = 'game', supporting = [], isLoadin
             </div>
           </div>
 
-          {/* Supporting row — drag scrollable */}
+          {/* Supporting row — expandable */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <DragRow gap="gap-3">
-              {supporting.map(({ item, type }) => (
-                <div
-                  key={`${type}-${item.id ?? item.tmdbId}`}
-                  className="shrink-0 w-[200px] sm:w-[220px] lg:w-[240px] pointer-events-auto"
-                >
-                  <UnifiedCard item={item} type={type} />
-                </div>
-              ))}
-            </DragRow>
+            <ExpandableRow
+              items={supporting}
+              cardWidth="w-[200px] sm:w-[220px] lg:w-[240px]"
+              gap="gap-3"
+            />
           </div>
         </div>
       </div>
@@ -241,13 +238,11 @@ function BecauseYouLike({ categoryId, games = [], movies = [], series = [], isLo
             ))}
           </div>
         ) : (
-          <DragRow gap="gap-3">
-            {mixedItems.map(({ item, type, key }) => (
-              <div key={key} className="shrink-0 w-48 sm:w-56 pointer-events-auto">
-                <UnifiedCard item={item} type={type} />
-              </div>
-            ))}
-          </DragRow>
+          <ExpandableRow
+            items={mixedItems}
+            cardWidth="w-48 sm:w-56"
+            gap="gap-3"
+          />
         )}
       </div>
     </section>
@@ -287,7 +282,7 @@ function SectionHead({ overline, title, color = 'default', action }) {
 
 // ─── Hero Search ──────────────────────────────────────────────────────────────
 
-function HeroSearch({ onGameExpand, onCategoryClick }) {
+function HeroSearch({ onCategoryClick }) {
   const [query, setQuery]           = useState('');
   const [isOpen, setIsOpen]         = useState(false);
   const [movies, setMovies]         = useState([]);
@@ -363,10 +358,9 @@ function HeroSearch({ onGameExpand, onCategoryClick }) {
 
   const handleGameClick = useCallback((game) => {
     expandGame(game.id);
-    onGameExpand?.(game.id);
     setIsOpen(false);
     setQuery('');
-  }, [expandGame, onGameExpand]);
+  }, [expandGame]);
 
   const handleChipClick = useCallback((catId) => {
     onCategoryClick?.(catId);
@@ -883,25 +877,30 @@ function CategoryCard({ cat, isActive, onClick }) {
 
 // ─── Category game item ────────────────────────────────────────────────────────
 
-function CategoryGameItem({ game }) {
-  const { expandGame, toggleGame, hasGame }   = useGameStore();
-  const { recordInteraction }                 = useUserProfileStore();
+function CategoryGameItem({ game, isExpanded, onExpand }) {
+  const { toggleGame, hasGame }  = useGameStore();
+  const { recordInteraction }    = useUserProfileStore();
 
   const handleClick = useCallback(() => {
-    expandGame(game.id);
-    recordInteraction(game, 1); // click = weight 1
-  }, [game, expandGame, recordInteraction]);
+    onExpand(game);                  // inline expand — never scrolls to top
+    recordInteraction(game, 1);
+  }, [game, onExpand, recordInteraction]);
 
   const handleAdd = useCallback(() => {
     toggleGame(game);
-    if (!hasGame(game.id)) recordInteraction(game, 2); // add = weight 2
+    if (!hasGame(game.id)) recordInteraction(game, 2);
   }, [game, toggleGame, hasGame, recordInteraction]);
 
   return (
     <div className="group">
-      <button onClick={handleClick} className="block w-full text-left">
+      <button
+        onClick={handleClick}
+        className="block w-full text-left transition-transform duration-300 hover:-translate-y-0.5"
+      >
         <div
-          className="relative rounded-xl overflow-hidden bg-surface-high"
+          className={`relative rounded-2xl overflow-hidden bg-surface-high shadow-sm hover:shadow-xl
+                      transition-all duration-300
+                      ${isExpanded ? 'ring-2 ring-accent ring-offset-1' : ''}`}
           style={{ aspectRatio: '16/9' }}
         >
           {game.image ? (
@@ -910,7 +909,7 @@ function CategoryGameItem({ game }) {
               alt={game.name}
               draggable={false}
               loading="lazy"
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.05]"
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           ) : (
@@ -918,16 +917,21 @@ function CategoryGameItem({ game }) {
               {game.emoji}
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
           {game.rating != null && (
             <span className="absolute top-2 right-2 text-[10px] font-semibold text-white/80
-                             bg-black/50 px-1.5 py-0.5 rounded backdrop-blur-sm pointer-events-none">
+                             bg-black/50 px-1.5 py-0.5 rounded-md backdrop-blur-sm pointer-events-none">
               &#9733; {game.rating.toFixed(1)}
             </span>
           )}
+          {isExpanded && (
+            <div className="absolute bottom-0 inset-x-0 h-0.5 bg-accent" />
+          )}
         </div>
         <div className="mt-2">
-          <p className="text-sm font-semibold text-ink truncate leading-tight group-hover:text-accent transition-colors">
+          <p className={`text-sm font-semibold truncate leading-tight transition-colors ${
+            isExpanded ? 'text-accent' : 'text-ink group-hover:text-accent'
+          }`}>
             {game.name}
           </p>
           {game.tags?.length > 0 && (
@@ -1039,7 +1043,14 @@ export default function HomePage() {
   const [categoryGames, setCategoryGames]               = useState([]);
   const [filteredGames, setFilteredGames]               = useState([]);
   const [categoryGamesLoading, setCategoryGamesLoading] = useState(false);
+  const [expandedCategoryGame, setExpandedCategoryGame] = useState(null); // { game } | null
   const categoryPanelRef = useRef(null);
+
+  const handleCategoryGameExpand = useCallback((game) => {
+    setExpandedCategoryGame(prev =>
+      prev?.game?.id === game.id ? null : { game }
+    );
+  }, []);
 
 
   const anyFilterActive = selectedGenres.length > 0 || selectedTags.length > 0 || selectedGameMode !== null;
@@ -1146,6 +1157,19 @@ export default function HomePage() {
     return parts;
   }, [selectedGenres, selectedTags, selectedGameMode, selectedPlatform]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── RAWG trending (must be declared before hero memos that depend on it) ──
+  const [rawgGames, setRawgGames]     = useState([]);
+  const [rawgLoading, setRawgLoading] = useState(true);
+
+  useEffect(() => {
+    rawgService.getTrending(12)
+      .then(setRawgGames)
+      .catch(() => {})
+      .finally(() => setRawgLoading(false));
+  }, []);
+
+  const trendingGames = rawgGames.length ? rawgGames : TOP_GAMES;
+
   // ── Hero section: trending movies + series ────────────────────────────────
   const [heroMovies, setHeroMovies] = useState([]);
   const [heroSeries, setHeroSeries] = useState([]);
@@ -1164,14 +1188,14 @@ export default function HomePage() {
 
   // Build hero featured item + supporting mix
   const heroFeatured = useMemo(() => {
-    if (myGames.length > 0) return { item: myGames[0], type: 'game' };
-    if (rawgGames.length > 0) return { item: rawgGames[0], type: 'game' };
+    if (myGames?.length > 0) return { item: myGames[0], type: 'game' };
+    if (rawgGames?.length > 0) return { item: rawgGames[0], type: 'game' };
     return null;
   }, [myGames, rawgGames]);
 
   const heroSupporting = useMemo(() => {
     const skipId = String(heroFeatured?.item?.id ?? heroFeatured?.item?.tmdbId ?? '');
-    const games  = rawgGames.filter(g => String(g.id) !== skipId).slice(0, 5);
+    const games  = (rawgGames ?? []).filter(g => String(g.id) !== skipId).slice(0, 5);
     const movs   = heroMovies.slice(0, 5);
     const ser    = heroSeries.slice(0, 5);
     const pool   = [];
@@ -1231,18 +1255,8 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []); // run once on mount — profile is read from localStorage // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Expanded game panel scroll ref ────────────────────────────────────────
+  // ── Expanded game panel ref (My Games section only — no auto-scroll) ────────
   const gamePanelRef = useRef(null);
-
-  const handleGameExpand = useCallback(() => {
-    setTimeout(() => {
-      gamePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 60);
-  }, []);
-
-  useEffect(() => {
-    if (expandedGameId) handleGameExpand();
-  }, [expandedGameId, handleGameExpand]);
 
   // ── Discover data (ExpandedGamePanel + BecauseYouPlayed) ──────────────────
   const [gamesMovies, setGamesMovies]         = useState([]);
@@ -1329,20 +1343,6 @@ export default function HomePage() {
     fetchNews();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── RAWG trending ─────────────────────────────────────────────────────────
-  const [rawgGames, setRawgGames]     = useState([]);
-  const [rawgLoading, setRawgLoading] = useState(true);
-
-  useEffect(() => {
-    rawgService.getTrending(12)
-      .then(setRawgGames)
-      .catch(() => {})
-      .finally(() => setRawgLoading(false));
-  }, []);
-
-  const trendingGames = rawgGames.length ? rawgGames : TOP_GAMES;
-
-
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-canvas">
@@ -1351,7 +1351,6 @@ export default function HomePage() {
           1. HERO SEARCH
       ══════════════════════════════════════════════════════════════════ */}
       <HeroSearch
-        onGameExpand={handleGameExpand}
         onCategoryClick={toggleGenre}
       />
 
@@ -1623,11 +1622,24 @@ export default function HomePage() {
 
                 {/* Results grid */}
                 {!categoryGamesLoading && filteredGames.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 gap-y-6">
-                    {filteredGames.map(game => (
-                      <CategoryGameItem key={game.id} game={game} />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 gap-y-6">
+                      {filteredGames.map(game => (
+                        <CategoryGameItem
+                          key={game.id}
+                          game={game}
+                          isExpanded={expandedCategoryGame?.game?.id === game.id}
+                          onExpand={handleCategoryGameExpand}
+                        />
+                      ))}
+                    </div>
+                    <InlineDetail
+                      item={expandedCategoryGame?.game ?? null}
+                      type="game"
+                      isOpen={!!expandedCategoryGame}
+                      onClose={() => setExpandedCategoryGame(null)}
+                    />
+                  </>
                 )}
 
                 {/* No-results state */}
@@ -1677,18 +1689,16 @@ export default function HomePage() {
             <div className="flex gap-3 overflow-hidden">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="shrink-0 w-44 sm:w-52">
-                  <div className="skeleton aspect-video rounded-xl" />
+                  <div className="skeleton aspect-video rounded-2xl" />
                 </div>
               ))}
             </div>
           ) : (
-            <DragRow gap="gap-3">
-              {trendingGames.map(game => (
-                <div key={game.id} className="shrink-0 w-44 sm:w-52 pointer-events-auto">
-                  <UnifiedCard item={game} type="game" />
-                </div>
-              ))}
-            </DragRow>
+            <ExpandableRow
+              items={trendingGames.map(g => ({ item: g, type: 'game' }))}
+              cardWidth="w-44 sm:w-52"
+              gap="gap-3"
+            />
           )}
         </section>
 

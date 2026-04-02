@@ -6,13 +6,13 @@ import { useGameStore } from '@/features/games/gameStore';
  *
  * type: 'game' | 'movie' | 'series'
  *
- * Item shape:
- *   Game:   { id, name, image, emoji, rating, tags }
- *   Movie:  { tmdbId, title, backdropUrl, posterUrl, rating, releaseDate }
- *   Series: { tmdbId, title, backdropUrl, posterUrl, rating, releaseDate }
+ * Interaction model:
+ *   - If `onClick` is provided → all types use it (inline expansion mode).
+ *   - Games with no onClick → default expandGame via store.
+ *   - Movies with no onClick → navigate to /movie/:id.
+ *   - Series with no onClick → non-interactive display.
  *
- * Games ALWAYS expand inline via the gameStore — never navigate to a route.
- * Pass onClick to override the default expandGame behaviour (e.g. custom callbacks).
+ * isActive → shows accent ring (item is currently expanded).
  */
 
 const TYPE_CONFIG = {
@@ -21,23 +21,25 @@ const TYPE_CONFIG = {
   series: { label: 'SERIES', badge: 'bg-violet-500', border: 'bg-violet-500' },
 };
 
-export default function UnifiedCard({ item, type = 'movie', onClick }) {
+export default function UnifiedCard({ item, type = 'movie', onClick, isActive = false }) {
   const { expandGame } = useGameStore();
 
-  const cfg   = TYPE_CONFIG[type] ?? TYPE_CONFIG.movie;
-  const title = item.title ?? item.name;
-  const image = item.image ?? item.backdropUrl ?? item.posterUrl ?? null;
+  const cfg    = TYPE_CONFIG[type] ?? TYPE_CONFIG.movie;
+  const title  = item.title ?? item.name;
+  const image  = item.image ?? item.backdropUrl ?? item.posterUrl ?? null;
   const rating = item.rating;
   const year   = item.releaseDate?.slice(0, 4);
 
-  // Games: custom onClick OR default expandGame. Movies: Link. Series: non-interactive.
-  const gameClick = type === 'game' ? (onClick ?? (() => expandGame(item.id))) : null;
-  const movieHref = type === 'movie' ? `/movie/${item.tmdbId}` : null;
+  // onClick overrides navigation for all types (inline expansion).
+  // Fallback: games → expandGame store, movies → Link, series → display only.
+  const handleClick = onClick ?? (type === 'game' ? () => expandGame(item.id) : null);
+  const movieHref   = (!onClick && type === 'movie') ? `/movie/${item.tmdbId}` : null;
 
   const inner = (
     <div
-      className="group relative w-full overflow-hidden rounded-2xl bg-surface-high
-                 shadow-md hover:shadow-2xl transition-shadow duration-300"
+      className={`group relative w-full overflow-hidden rounded-2xl bg-surface-high
+                 shadow-md hover:shadow-2xl transition-all duration-300
+                 ${isActive ? 'ring-2 ring-accent ring-offset-2' : ''}`}
       style={{ aspectRatio: '16/9' }}
     >
       {image ? (
@@ -74,7 +76,7 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
 
       <div className="absolute bottom-0 inset-x-0 px-3 pb-3">
         <p className="text-[13px] font-semibold text-white leading-snug line-clamp-2
-                      drop-shadow-sm group-hover:text-white transition-colors duration-200">
+                      drop-shadow-sm">
           {title}
         </p>
         <p className="text-[11px] text-white/40 mt-0.5">
@@ -90,10 +92,11 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
     </div>
   );
 
-  if (gameClick) {
+  // All types: button when onClick provided
+  if (handleClick) {
     return (
       <button
-        onClick={gameClick}
+        onClick={handleClick}
         className="block w-full text-left animate-fade-in focus:outline-none
                    transition-transform duration-300 hover:-translate-y-1"
       >
@@ -102,6 +105,7 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
     );
   }
 
+  // Movies without onClick: navigate
   if (movieHref) {
     return (
       <Link
@@ -113,7 +117,7 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
     );
   }
 
-  // Series or unknown: non-navigating display card
+  // Series / display-only
   return (
     <div className="animate-fade-in transition-transform duration-300 hover:-translate-y-1">
       {inner}
