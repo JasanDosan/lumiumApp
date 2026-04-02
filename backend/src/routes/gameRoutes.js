@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { search, getTrending, getTopRated } from '../controllers/gameController.js';
+import { search, getTrending, getTopRated, getByCategory, getMultiCategory } from '../controllers/gameController.js';
 
 const router = Router();
 
@@ -11,5 +11,11 @@ router.get('/trending', getTrending);
 
 // GET /api/games/top-rated?count=N
 router.get('/top-rated', getTopRated);
+
+// GET /api/games/by-category?category=CATEGORY_ID&count=N
+router.get('/by-category', getByCategory);
+
+// GET /api/games/multi-category?categories=rpg,horror&count=40
+router.get('/multi-category', getMultiCategory);
 
 export default router;

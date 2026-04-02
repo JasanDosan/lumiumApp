@@ -174,7 +174,7 @@ function SearchBar() {
                         </div>
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleGame(game.id); }}
+                        onClick={(e) => { e.stopPropagation(); toggleGame(game); }}
                         className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full border transition-colors ${
                           hasGame(game.id)
                             ? 'bg-accent/10 border-accent/30 text-accent'

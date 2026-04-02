@@ -36,7 +36,8 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
 
   const inner = (
     <div
-      className="group relative w-full overflow-hidden rounded-xl bg-surface-high"
+      className="group relative w-full overflow-hidden rounded-2xl bg-surface-high
+                 shadow-md hover:shadow-2xl transition-shadow duration-300"
       style={{ aspectRatio: '16/9' }}
     >
       {image ? (
@@ -45,7 +46,7 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
           alt={title}
           loading="lazy"
           draggable={false}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.06]"
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.07]"
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
       ) : (
@@ -57,22 +58,25 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
       )}
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-      <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors duration-300" />
+      <div className="absolute inset-0 bg-white/0 group-hover:bg-white/[0.04] transition-colors duration-300" />
 
       <span className={`absolute top-2.5 left-2.5 text-[9px] font-black tracking-[0.15em] uppercase
-                       px-2 py-0.5 rounded text-white ${cfg.badge}`}>
+                       px-2 py-0.5 rounded-md text-white ${cfg.badge}`}>
         {cfg.label}
       </span>
 
       {rating != null && (
         <span className="absolute top-2.5 right-2.5 text-[10px] font-semibold text-white/70
-                        bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                        bg-black/50 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
           ★ {typeof rating === 'number' ? rating.toFixed(1) : String(rating)}
         </span>
       )}
 
       <div className="absolute bottom-0 inset-x-0 px-3 pb-3">
-        <p className="text-[13px] font-semibold text-white leading-snug line-clamp-2">{title}</p>
+        <p className="text-[13px] font-semibold text-white leading-snug line-clamp-2
+                      drop-shadow-sm group-hover:text-white transition-colors duration-200">
+          {title}
+        </p>
         <p className="text-[11px] text-white/40 mt-0.5">
           {year ?? (type === 'game' && item.price != null
             ? (item.price === 0 ? 'Free to Play' : `$${item.price.toFixed(2)}`)
@@ -80,14 +84,19 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
         </p>
       </div>
 
-      <div className={`absolute bottom-0 inset-x-0 h-0.5 ${cfg.border}
-                      opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+      <div className={`absolute bottom-0 inset-x-0 h-[3px] ${cfg.border}
+                      opacity-0 group-hover:opacity-100 transition-all duration-300
+                      rounded-b-2xl`} />
     </div>
   );
 
   if (gameClick) {
     return (
-      <button onClick={gameClick} className="block w-full text-left animate-fade-in focus:outline-none">
+      <button
+        onClick={gameClick}
+        className="block w-full text-left animate-fade-in focus:outline-none
+                   transition-transform duration-300 hover:-translate-y-1"
+      >
         {inner}
       </button>
     );
@@ -95,7 +104,10 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
 
   if (movieHref) {
     return (
-      <Link to={movieHref} className="block animate-fade-in">
+      <Link
+        to={movieHref}
+        className="block animate-fade-in transition-transform duration-300 hover:-translate-y-1"
+      >
         {inner}
       </Link>
     );
@@ -103,6 +115,8 @@ export default function UnifiedCard({ item, type = 'movie', onClick }) {
 
   // Series or unknown: non-navigating display card
   return (
-    <div className="animate-fade-in">{inner}</div>
+    <div className="animate-fade-in transition-transform duration-300 hover:-translate-y-1">
+      {inner}
+    </div>
   );
 }

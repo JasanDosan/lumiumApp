@@ -1,6 +1,8 @@
-import { useEffect, useReducer, useRef, useCallback } from 'react';
+import { useEffect, useReducer, useRef, useCallback, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
+import { rawgService } from '@/services/rawgService';
+import { useGameStore } from '@/features/games/gameStore';
 import MovieCard from '@/features/movies/MovieCard';
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -45,6 +47,96 @@ function reducer(state, action) {
     default:
       return state;
   }
+}
+
+// ─── Highlight matching text ──────────────────────────────────────────────────
+
+function Highlight({ text, query }) {
+  if (!query?.trim() || !text) return <>{text}</>;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase()
+          ? <mark key={i} className="bg-accent/20 text-accent not-italic rounded-sm">{part}</mark>
+          : <span key={i}>{part}</span>
+      )}
+    </>
+  );
+}
+
+// ─── Game card for search results (with Add button) ──────────────────────────
+
+function SearchGameCard({ game, query }) {
+  const { toggleGame, hasGame } = useGameStore();
+  const saved = hasGame(game.id);
+
+  return (
+    <div className="group flex flex-col">
+      {/* Landscape image */}
+      <div className="relative rounded-xl overflow-hidden bg-surface-high" style={{ aspectRatio: '16/9' }}>
+        {game.image ? (
+          <img
+            src={game.image}
+            alt={game.title ?? game.name}
+            loading="lazy"
+            draggable={false}
+            className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-4xl opacity-30">🎮</div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+        <span className="absolute top-2 left-2 text-[9px] font-black tracking-[0.15em] uppercase
+                         px-2 py-0.5 rounded text-white bg-accent">
+          GAME
+        </span>
+        {game.rating != null && (
+          <span className="absolute top-2 right-2 text-[10px] font-semibold text-white/70
+                           bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">
+            ★ {typeof game.rating === 'number' ? game.rating.toFixed(1) : game.rating}
+          </span>
+        )}
+        <div className="absolute bottom-0 inset-x-0 px-2.5 pb-2.5">
+          <p className="text-[12px] font-semibold text-white leading-snug line-clamp-2">
+            <Highlight text={game.title ?? game.name} query={query} />
+          </p>
+          {game.tags?.length > 0 && (
+            <p className="text-[10px] text-white/50 mt-0.5 truncate">{game.tags.slice(0, 2).join(' · ')}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Add to My Games button */}
+      <button
+        onClick={() => toggleGame(game)}
+        className={`mt-1.5 w-full text-[10px] font-semibold px-2 py-1.5 rounded-lg border transition-colors duration-150 ${
+          saved
+            ? 'bg-accent/10 border-accent/30 text-accent'
+            : 'border-line text-ink-light hover:border-accent/40 hover:text-accent'
+        }`}
+      >
+        {saved ? '✓ In My Games' : '+ Add to My Games'}
+      </button>
+    </div>
+  );
+}
+
+// ─── Games skeleton ───────────────────────────────────────────────────────────
+
+function GamesSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i}>
+          <div className="skeleton rounded-xl" style={{ aspectRatio: '16/9' }} />
+          <div className="mt-1.5 skeleton h-6 w-full rounded-lg" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ─── Skeleton strip (appended pages) ─────────────────────────────────────────
@@ -110,6 +202,10 @@ export default function SearchPage() {
 
 
   
+  // ── Games state (RAWG — first page only, no pagination) ───────────────────
+  const [games, setGames]             = useState([]);
+  const [gamesLoading, setGamesLoading] = useState(false);
+
   const sentinelRef = useRef(null);
   const inputRef    = useRef(null);
 
@@ -146,6 +242,25 @@ export default function SearchPage() {
 
     return () => { cancelled = true; };
   }, [state.query, state.page]);
+
+  // ── RAWG game search (query only — no pagination) ─────────────────────────
+  useEffect(() => {
+    if (!state.query.trim()) { setGames([]); setGamesLoading(false); return; }
+
+    setGamesLoading(true);
+    rawgService.search(state.query.trim(), 6)
+      .then(results => {
+        console.log('RAWG RAW:', results);
+        console.log('RAWG RESULTS:', results);
+        console.log('MAPPED GAMES:', results);
+        setGames(results);
+      })
+      .catch(err => {
+        console.warn('[SearchPage] RAWG search failed:', err.message);
+        setGames([]);
+      })
+      .finally(() => setGamesLoading(false));
+  }, [state.query]);
 
   // ── IntersectionObserver ───────────────────────────────────────────────────
   // Re-created whenever loading finishes. Because IntersectionObserver fires
@@ -256,12 +371,39 @@ export default function SearchPage() {
         {/* First-load skeleton */}
         {isFirstLoad && <FirstLoadSkeleton />}
 
+        {/* Games section (RAWG) */}
+        {!isFirstLoad && (gamesLoading || games.length > 0) && (
+          <div className="mb-10">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-0.5 h-5 bg-accent rounded-full shrink-0" />
+              <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent">Games</p>
+            </div>
+            {gamesLoading ? (
+              <GamesSkeleton />
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
+                {games.map(game => (
+                  <SearchGameCard key={game.id} game={game} query={state.query} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Results grid */}
         {!isFirstLoad && state.results.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
-            {state.results.map(movie => (
-              <MovieCard key={movie.tmdbId} movie={movie} />
-            ))}
+          <div>
+            {(games.length > 0 || gamesLoading) && (
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-0.5 h-5 bg-amber-500 rounded-full shrink-0" />
+                <p className="text-[10px] font-black tracking-[0.2em] uppercase text-amber-400">Movies &amp; Series</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
+              {state.results.map(movie => (
+                <MovieCard key={movie.tmdbId} movie={movie} />
+              ))}
+            </div>
           </div>
         )}
 
