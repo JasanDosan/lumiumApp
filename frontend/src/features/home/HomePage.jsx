@@ -223,7 +223,7 @@ function HeroSearch({ onCategoryClick }) {
   const rawgDebounce = useRef(null);
 
   const { selectGame } = useGameStore();
-  const { toggleGame, hasGame } = useLibraryStore();
+  const { toggleGame, hasGame, addMovie, removeMovie, hasMovie, addSeries, removeSeries, hasSeries } = useLibraryStore();
 
   // Local game filter (instant)
   const localGameResults = useMemo(() => {
@@ -408,23 +408,34 @@ function HeroSearch({ onCategoryClick }) {
                         Movies
                       </p>
                       {movies.map((m, i) => (
-                        <Link
-                          key={m.tmdbId ?? i}
-                          to={`/movie/${m.tmdbId}`}
-                          onClick={() => { setIsOpen(false); setQuery(''); }}
-                          className="flex items-center gap-3 px-3 py-2 hover:bg-surface-high"
-                        >
-                          {m.posterUrl ? (
-                            <img src={m.posterUrl} alt="" draggable={false}
-                              className="w-8 h-11 rounded object-cover shrink-0 bg-surface-high" />
-                          ) : (
-                            <div className="w-8 h-11 rounded bg-surface-high shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-ink truncate">{m.title}</p>
-                            <p className="text-[11px] text-ink-light">{m.releaseDate?.slice(0, 4)}</p>
-                          </div>
-                        </Link>
+                        <div key={m.tmdbId ?? i} className="flex items-center gap-3 px-3 py-2 hover:bg-surface-high">
+                          <Link
+                            to={`/movie/${m.tmdbId}`}
+                            onClick={() => { setIsOpen(false); setQuery(''); }}
+                            className="flex-1 flex items-center gap-3 min-w-0"
+                          >
+                            {m.posterUrl ? (
+                              <img src={m.posterUrl} alt="" draggable={false}
+                                className="w-8 h-11 rounded object-cover shrink-0 bg-surface-high" />
+                            ) : (
+                              <div className="w-8 h-11 rounded bg-surface-high shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-ink truncate">{m.title}</p>
+                              <p className="text-[11px] text-ink-light">{m.releaseDate?.slice(0, 4)}</p>
+                            </div>
+                          </Link>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); hasMovie(m.tmdbId) ? removeMovie(m.tmdbId) : addMovie(m); }}
+                            className={`shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                              hasMovie(m.tmdbId)
+                                ? 'bg-accent/10 border-accent/30 text-accent'
+                                : 'border-line text-ink-light hover:border-accent/30 hover:text-accent'
+                            }`}
+                          >
+                            {hasMovie(m.tmdbId) ? '✓ Saved' : '+ Add'}
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -437,16 +448,28 @@ function HeroSearch({ onCategoryClick }) {
                       </p>
                       {tvShows.map((s, i) => (
                         <div key={s.tmdbId ?? i} className="flex items-center gap-3 px-3 py-2 hover:bg-surface-high">
-                          {s.posterUrl ? (
-                            <img src={s.posterUrl} alt="" draggable={false}
-                              className="w-8 h-11 rounded object-cover shrink-0 bg-surface-high" />
-                          ) : (
-                            <div className="w-8 h-11 rounded bg-surface-high shrink-0" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-ink truncate">{s.title ?? s.name}</p>
-                            <p className="text-[11px] text-ink-light">{s.releaseDate?.slice(0, 4)}</p>
+                          <div className="flex-1 flex items-center gap-3 min-w-0">
+                            {s.posterUrl ? (
+                              <img src={s.posterUrl} alt="" draggable={false}
+                                className="w-8 h-11 rounded object-cover shrink-0 bg-surface-high" />
+                            ) : (
+                              <div className="w-8 h-11 rounded bg-surface-high shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-ink truncate">{s.title ?? s.name}</p>
+                              <p className="text-[11px] text-ink-light">{s.releaseDate?.slice(0, 4)}</p>
+                            </div>
                           </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); hasSeries(s.tmdbId) ? removeSeries(s.tmdbId) : addSeries(s); }}
+                            className={`shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                              hasSeries(s.tmdbId)
+                                ? 'bg-accent/10 border-accent/30 text-accent'
+                                : 'border-line text-ink-light hover:border-accent/30 hover:text-accent'
+                            }`}
+                          >
+                            {hasSeries(s.tmdbId) ? '✓ Saved' : '+ Add'}
+                          </button>
                         </div>
                       ))}
                     </div>
