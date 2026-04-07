@@ -6,15 +6,15 @@ import { rawgService } from '@/services/rawgService';
 import { useAuthStore } from '@/features/auth/authStore';
 import { GAME_CATALOG } from '@/data/gameMovieTags';
 import { useGameStore } from '@/features/games/gameStore';
-import { useLibraryStore, useUserLibraryStore } from '@/features/library/libraryStore';
+import { useLibraryStore } from '@/features/library/libraryStore';
 import { useUserProfileStore } from '@/features/profile/userProfileStore';
 import BecauseYouPlayed from './BecauseYouPlayed';
 import ExpandableRow from '@/components/ui/ExpandableRow';
 import InlineDetail from '@/components/ui/InlineDetail';
+import RecentlySaved from './sections/RecentlySaved';
+import TrendingNow from './sections/TrendingNow';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
-
-const TOP_GAMES = [...GAME_CATALOG].sort((a, b) => b.rating - a.rating).slice(0, 12);
 
 // Maps each category id to the RAWG genre/tag slug used for AND filtering
 const CATEGORY_FILTER_MAP = {
@@ -516,179 +516,6 @@ function HeroSearch({ onCategoryClick }) {
   );
 }
 
-// ─── My Library section (collapsible — games + movies + series) ──────────────
-
-function LibraryTypeLabel({ label, emoji, colorClass, count }) {
-  return (
-    <div className="flex items-center gap-2 mb-2.5">
-      <span className="text-sm">{emoji}</span>
-      <p className={`text-[10px] font-black tracking-[0.18em] uppercase ${colorClass}`}>{label}</p>
-      <span className="text-[10px] text-ink-light font-normal">{count}</span>
-    </div>
-  );
-}
-
-function LibraryGameCard({ game, isExpanded, onToggleExpand, onRemove }) {
-  return (
-    <div className="group relative shrink-0 w-40 sm:w-48">
-      <button
-        onClick={onToggleExpand}
-        className={`block w-full text-left rounded-xl overflow-hidden border-2 transition-all duration-200 ${
-          isExpanded
-            ? 'border-accent ring-2 ring-accent/20 scale-[0.97]'
-            : 'border-transparent hover:border-accent/40'
-        }`}
-        style={{ aspectRatio: '460/215' }}
-      >
-        {game.image ? (
-          <img src={game.image} alt={game.title ?? game.name} draggable={false}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-        ) : (
-          <div className="w-full h-full bg-surface-high flex items-center justify-center text-4xl">
-            {game.emoji ?? '🎮'}
-          </div>
-        )}
-      </button>
-      <button
-        onClick={onRemove}
-        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white/50 hover:text-white
-                   text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-        aria-label={`Remove ${game.title ?? game.name}`}
-      >
-        &times;
-      </button>
-      <p className="mt-1.5 text-xs font-medium text-ink truncate px-0.5">{game.title ?? game.name}</p>
-    </div>
-  );
-}
-
-function LibraryPosterCard({ item, onRemove }) {
-  const title = item.title ?? item.name ?? '?';
-  const poster = item.image ?? (item.posterPath ? `https://image.tmdb.org/t/p/w185${item.posterPath}` : null);
-  const emoji  = item.type === 'movie' ? '🎬' : '📺';
-
-  return (
-    <div className="group relative shrink-0 w-24 sm:w-28">
-      <div className="relative rounded-xl overflow-hidden border-2 border-transparent hover:border-accent/40 transition-all"
-           style={{ aspectRatio: '2/3' }}>
-        {poster ? (
-          <img src={poster} alt={title} draggable={false}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-        ) : (
-          <div className="w-full h-full bg-surface-high flex items-center justify-center text-2xl">{emoji}</div>
-        )}
-        <button
-          onClick={onRemove}
-          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white/50 hover:text-white
-                     text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-          aria-label={`Remove ${title}`}
-        >
-          &times;
-        </button>
-      </div>
-      <p className="mt-1.5 text-xs font-medium text-ink truncate">{title}</p>
-    </div>
-  );
-}
-
-function MyLibrarySection() {
-  const [isOpen, setIsOpen]         = useState(false);
-  const [expandedGameId, setExpandedGameId] = useState(null);
-  const { games, movies, series, removeItem } = useUserLibraryStore();
-
-  const total = games.length + movies.length + series.length;
-
-  // Hook must be unconditional — compute before early return
-  const expandedGame = useMemo(
-    () => games.find(g => g.id === expandedGameId) ?? null,
-    [games, expandedGameId],
-  );
-
-  if (!total) return null;
-
-  return (
-    <section className="border-t border-b border-line bg-surface">
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-        <button
-          onClick={() => setIsOpen(o => !o)}
-          className="flex items-center gap-2 py-4 w-full text-left text-xs font-black tracking-[0.2em] uppercase text-ink-mid hover:text-ink transition-colors"
-        >
-          <span>My Library</span>
-          <span className={`transition-transform duration-200 text-[10px] ${isOpen ? 'rotate-180' : ''}`}>▾</span>
-          <span className="ml-1 px-1.5 py-0.5 rounded-full bg-accent/10 text-accent text-[10px] font-bold">
-            {total}
-          </span>
-        </button>
-
-        <div style={{ display: 'grid', gridTemplateRows: isOpen ? '1fr' : '0fr', transition: 'grid-template-rows 300ms ease-in-out' }}>
-          <div className="overflow-hidden">
-            <div className="pb-4 space-y-5">
-
-              {/* Games */}
-              {games.length > 0 && (
-                <div>
-                  <LibraryTypeLabel label="Games" emoji="🎮" colorClass="text-accent" count={games.length} />
-                  <div className="flex gap-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                    {games.map(game => (
-                      <LibraryGameCard
-                        key={game.id}
-                        game={game}
-                        isExpanded={expandedGameId === game.id}
-                        onToggleExpand={() => setExpandedGameId(prev => prev === game.id ? null : game.id)}
-                        onRemove={() => removeItem(game.id)}
-                      />
-                    ))}
-                  </div>
-                  <InlineDetail
-                    item={expandedGame}
-                    type="game"
-                    isOpen={expandedGameId !== null}
-                    onClose={() => setExpandedGameId(null)}
-                  />
-                </div>
-              )}
-
-              {/* Movies */}
-              {movies.length > 0 && (
-                <div>
-                  <LibraryTypeLabel label="Movies" emoji="🎬" colorClass="text-amber-400" count={movies.length} />
-                  <div className="flex gap-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                    {movies.map(movie => (
-                      <LibraryPosterCard
-                        key={movie.id}
-                        item={movie}
-                        onRemove={() => removeItem(movie.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Series */}
-              {series.length > 0 && (
-                <div>
-                  <LibraryTypeLabel label="Series" emoji="📺" colorClass="text-violet-400" count={series.length} />
-                  <div className="flex gap-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                    {series.map(s => (
-                      <LibraryPosterCard
-                        key={s.id}
-                        item={s}
-                        onRemove={() => removeItem(s.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-
 // ─── Category card (large visual) ────────────────────────────────────────────
 
 function CategoryCard({ cat, isActive, onClick }) {
@@ -831,63 +658,6 @@ function CategoryGameItem({ game, isExpanded, onExpand }) {
 }
 
 
-// ─── News column ─────────────────────────────────────────────────────────────
-
-function NewsColumn({ items, isLoading }) {
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 p-2">
-            <div className="skeleton w-20 h-12 rounded-lg shrink-0" />
-            <div className="flex-1 space-y-1.5">
-              <div className="skeleton h-3 rounded w-3/4" />
-              <div className="skeleton h-2.5 rounded w-1/2" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {items.slice(0, 5).map((article, i) => (
-        <a
-          key={article.url ?? i}
-          href={article.url !== '#' ? article.url : undefined}
-          target={article.url !== '#' ? '_blank' : undefined}
-          rel="noopener noreferrer"
-          className="flex items-start gap-3 group hover:bg-surface-high rounded-xl p-2 -mx-2 transition-colors"
-        >
-          {article.image ? (
-            <img
-              src={article.image}
-              alt={article.title}
-              draggable={false}
-              className="w-20 h-12 object-cover rounded-lg shrink-0 group-hover:scale-[1.02] transition-transform"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-          ) : (
-            <div className="w-20 h-12 bg-surface-high rounded-lg shrink-0 flex items-center justify-center text-xl opacity-40">
-              📰
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-ink line-clamp-2 group-hover:text-accent transition-colors leading-snug">
-              {article.title}
-            </p>
-            <p className="text-[11px] text-ink-light mt-0.5">
-              {article.source}
-              {article.publishedAt && ` · ${new Date(article.publishedAt).toLocaleDateString()}`}
-            </p>
-          </div>
-        </a>
-      ))}
-    </div>
-  );
-}
-
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -1012,19 +782,6 @@ export default function HomePage() {
     return parts;
   }, [selectedGenres, selectedTags, selectedGameMode, selectedPlatform]);
 
-  // ── RAWG trending (must be declared before hero memos that depend on it) ──
-  const [rawgGames, setRawgGames]     = useState([]);
-  const [rawgLoading, setRawgLoading] = useState(true);
-
-  useEffect(() => {
-    rawgService.getTrending(12)
-      .then(setRawgGames)
-      .catch(() => {})
-      .finally(() => setRawgLoading(false));
-  }, []);
-
-  const trendingGames = rawgGames.length ? rawgGames : TOP_GAMES;
-
   // ── Profile-driven "Because You Like" section ──────────────────────────────
   const { getTopPreference, totalInteractions } = useUserProfileStore();
 
@@ -1072,63 +829,6 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [myGames, getTopPreference, totalInteractions]); // re-run when library changes
 
-  // ── Static fetches ────────────────────────────────────────────────────────
-  const staticFetchDone = useRef(false);
-
-  const GNEWS_KEY = import.meta.env.VITE_GNEWS_API_KEY;
-
-  const NEWS_FALLBACK = [
-    { title: 'News unavailable right now', description: '', image: null, url: '#', source: '' },
-  ];
-
-  const [gamingNews, setGamingNews] = useState([]);
-  const [movieNews,  setMovieNews]  = useState([]);
-  const [newsLoading, setNewsLoading] = useState(true);
-
-  useEffect(() => {
-    if (staticFetchDone.current) return;
-    staticFetchDone.current = true;
-
-    const fetchNews = async () => {
-      try {
-        const [gamingRes, movieRes] = await Promise.all([
-          fetch(`https://gnews.io/api/v4/search?q=gaming&lang=en&max=6&sortby=publishedAt&apikey=${GNEWS_KEY}`),
-          fetch(`https://gnews.io/api/v4/search?q=movies&lang=en&max=6&sortby=publishedAt&apikey=${GNEWS_KEY}`),
-        ]);
-
-        const gamingData = await gamingRes.json();
-        const movieData  = await movieRes.json();
-
-        console.log('GAMING NEWS:', gamingData);
-        console.log('MOVIE NEWS:',  movieData);
-
-        const mapArticles = (articles) =>
-          (articles || []).map(a => ({
-            title:       a.title,
-            description: a.description,
-            image:       a.image,
-            url:         a.url,
-            source:      a.source?.name ?? '',
-            publishedAt: a.publishedAt,
-          }));
-
-        const gaming = mapArticles(gamingData.articles);
-        const movies = mapArticles(movieData.articles);
-
-        setGamingNews(gaming.length ? gaming : NEWS_FALLBACK);
-        setMovieNews(movies.length  ? movies : NEWS_FALLBACK);
-      } catch (err) {
-        console.warn('[News] fetch failed:', err.message);
-        setGamingNews(NEWS_FALLBACK);
-        setMovieNews(NEWS_FALLBACK);
-      } finally {
-        setNewsLoading(false);
-      }
-    };
-
-    fetchNews();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-canvas">
@@ -1136,19 +836,44 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════════════════════════════
           1. HERO SEARCH
       ══════════════════════════════════════════════════════════════════ */}
-      <HeroSearch
-        onCategoryClick={toggleGenre}
-      />
+      <HeroSearch onCategoryClick={toggleGenre} />
 
       {/* ══════════════════════════════════════════════════════════════════
-          2. MY LIBRARY (COLLAPSIBLE — games + movies + series)
+          2. RECENTLY SAVED
       ══════════════════════════════════════════════════════════════════ */}
-      <MyLibrarySection />
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
+        <RecentlySaved />
+      </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-          4. BROWSE BY CATEGORY
+          3. BECAUSE YOU PLAYED
       ══════════════════════════════════════════════════════════════════ */}
-      <section id="browse-categories" className="pt-14 max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
+      <div id="because-you-played" className="pt-14 max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
+        <BecauseYouPlayed />
+      </div>
+
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
+
+        {/* ════════════════════════════════════════════════════════════════
+            4. TRENDING NOW (games + movies + series)
+        ════════════════════════════════════════════════════════════════ */}
+        <TrendingNow />
+
+        {/* ════════════════════════════════════════════════════════════════
+            5. BECAUSE YOU LIKE — profile-driven mixed section
+        ════════════════════════════════════════════════════════════════ */}
+        <BecauseYouLike
+          categoryId={becauseCategoryId}
+          games={recommendedGames}
+          movies={becauseMovies}
+          series={becauseSeries}
+          isLoading={recommendedLoading}
+        />
+
+        {/* ════════════════════════════════════════════════════════════════
+            6. BROWSE BY CATEGORY
+        ════════════════════════════════════════════════════════════════ */}
+        <section id="browse-categories" className="pt-14">
         <div className="flex items-end justify-between gap-4 mb-5">
           <div>
             <div className="flex items-center gap-2.5 mb-2">
@@ -1427,76 +1152,6 @@ export default function HomePage() {
             )}
           </div>
         </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════
-          5. BECAUSE YOU PLAYED
-      ══════════════════════════════════════════════════════════════════ */}
-      <div id="because-you-played" className="mt-14 max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-        <BecauseYouPlayed />
-      </div>
-
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-
-        {/* ════════════════════════════════════════════════════════════════
-            6. TRENDING GAMES
-        ════════════════════════════════════════════════════════════════ */}
-        <section className="pt-14">
-          <SectionHead overline="Games" title="Trending Now" />
-          {rawgLoading ? (
-            <div className="flex gap-3 overflow-hidden">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="shrink-0 w-44 sm:w-52">
-                  <div className="skeleton aspect-video rounded-2xl" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <ExpandableRow
-              items={trendingGames.map(g => ({ item: g, type: 'game' }))}
-              cardWidth="w-44 sm:w-52"
-              gap="gap-3"
-            />
-          )}
-        </section>
-
-        {/* ════════════════════════════════════════════════════════════════
-            7. BECAUSE YOU LIKE — profile-driven mixed section
-        ════════════════════════════════════════════════════════════════ */}
-        <BecauseYouLike
-          categoryId={becauseCategoryId}
-          games={recommendedGames}
-          movies={becauseMovies}
-          series={becauseSeries}
-          isLoading={recommendedLoading}
-        />
-
-        {/* ════════════════════════════════════════════════════════════════
-            8. NEWS
-        ════════════════════════════════════════════════════════════════ */}
-        <section className="pt-14 pb-20">
-          <SectionHead overline="Latest" title="What's New" color="amber" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-
-            {/* Gaming news */}
-            <div>
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-0.5 h-5 bg-accent rounded-full shrink-0" />
-                <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent">Gaming News</p>
-              </div>
-              <NewsColumn items={gamingNews} isLoading={newsLoading} />
-            </div>
-
-            {/* Movie news */}
-            <div>
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-0.5 h-5 bg-amber-500 rounded-full shrink-0" />
-                <p className="text-[10px] font-black tracking-[0.2em] uppercase text-amber-400">Movie News</p>
-              </div>
-              <NewsColumn items={movieNews} isLoading={newsLoading} />
-            </div>
-
-          </div>
         </section>
 
       </div>
@@ -1512,7 +1167,7 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-5">
             <Link to="/search" className="text-xs text-ink-light hover:text-ink transition-colors">Search</Link>
-            <Link to="/movies" className="text-xs text-ink-light hover:text-ink transition-colors">Platforms</Link>
+            <Link to="/discover" className="text-xs text-ink-light hover:text-ink transition-colors">Discover</Link>
             {!isAuthenticated && (
               <Link to="/register" className="btn-primary text-xs">
                 Get started

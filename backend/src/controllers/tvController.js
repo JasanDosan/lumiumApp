@@ -1,5 +1,23 @@
 import * as tmdb from '../services/tmdbService.js';
 
+export const getDetails = async (req, res, next) => {
+  try {
+    const show = await tmdb.getTVDetails(req.params.id);
+    res.json(show);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSimilar = async (req, res, next) => {
+  try {
+    const similar = await tmdb.getSimilarTV(req.params.id);
+    res.json({ results: similar });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getTrending = async (req, res, next) => {
   try {
     const { window = 'week' } = req.query;

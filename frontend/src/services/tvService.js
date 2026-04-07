@@ -7,6 +7,12 @@ export const tvService = {
   getPopular: (page = 1) =>
     api.get('/tv/popular', { params: { page } }).then(r => r.data),
 
+  getDetails: (id) =>
+    api.get(`/tv/${id}`).then(r => r.data),
+
+  getSimilar: (id) =>
+    api.get(`/tv/${id}/similar`).then(r => r.data),
+
   /**
    * Discover TV series by genre/mood — mirrors movieService.discover.
    * Used by GameDetailPage to find series that match a game's themes.

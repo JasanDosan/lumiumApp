@@ -95,6 +95,7 @@ export function normalizeSeries(s) {
     source:      'tmdb',
     type:        'series',
     title:       s.title ?? s.name ?? '',
+    overview:    s.overview     ?? null,
     imageUrl,
     image:       imageUrl,      // legacy alias
     rating:      s.rating      ?? null,

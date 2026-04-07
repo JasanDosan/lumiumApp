@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { movieService } from '@/services/movieService';
 import { tvService } from '@/services/tvService';
 import { GAME_CATALOG, translateMetaToTMDB, getRelatedGames } from '@/data/gameMovieTags';
-import GameHero from './GameHero';
+import { useUserLibraryStore } from '@/features/library/libraryStore';
+import DetailHero from '@/components/detail/DetailHero';
+import { toast } from '@/stores/toastStore';
 import GameRow from './GameRow';
 import UnifiedCard from '@/components/ui/UnifiedCard';
 import DragRow from '@/components/ui/DragRow';
@@ -82,7 +84,33 @@ function TagPill({ label }) {
 
 export default function GameDetailPage() {
   const { id } = useParams();
-  const game   = GAME_CATALOG.find(g => g.id === id);
+
+  const { addGame, removeGame, hasGame, library } = useUserLibraryStore();
+  const isSaved = hasGame(id);
+
+  // 1 — Try the curated catalog (string-slug IDs)
+  const catalogGame = GAME_CATALOG.find(g => g.id === id);
+
+  // 2 — Fall back to whatever is stored in the library (RAWG numeric IDs)
+  const libraryItem = !catalogGame
+    ? library.find(i => i.type === 'game' && (i.rawId === id || i.externalId === id))
+    : null;
+
+  // Unified display shape — GameHero expects `name`, `image`, `tags`, etc.
+  const game = catalogGame ?? (libraryItem
+    ? {
+        id,
+        name:        libraryItem.title,
+        image:       libraryItem.imageUrl ?? libraryItem.image ?? null,
+        emoji:       libraryItem.emoji    ?? null,
+        tags:        libraryItem.tags     ?? [],
+        rating:      libraryItem.rating   ?? null,
+        price:       null,
+        tagline:     null,
+        description: null,
+        meta:        null, // no catalog meta → related-media queries are skipped
+      }
+    : null);
 
   const [relatedMovies, setRelatedMovies] = useState([]);
   const [moviesLoading, setMoviesLoading] = useState(true);
@@ -96,11 +124,15 @@ export default function GameDetailPage() {
     if (id) recordRecentGame(id);
   }, [id]);
 
-  // Fetch related media
+  // Fetch related media — only possible for catalog games that have meta tags
   useEffect(() => {
-    if (!game) return;
+    if (!catalogGame) {
+      setMoviesLoading(false);
+      setSeriesLoading(false);
+      return;
+    }
 
-    const filters = translateMetaToTMDB(game.meta);
+    const filters = translateMetaToTMDB(catalogGame.meta);
 
     movieService.discover({ ...filters, page: 1 })
       .then(data => setRelatedMovies((data.results || []).slice(0, 16)))
@@ -113,22 +145,50 @@ export default function GameDetailPage() {
       .finally(() => setSeriesLoading(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!game) return <Navigate to="/" replace />;
+  // Neither in catalog nor in library — show a proper error instead of redirecting
+  if (!game) {
+    return (
+      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4">
+        <p className="text-2xl mb-2">🎮</p>
+        <p className="text-sm font-semibold text-ink-mid">Game not found</p>
+        <p className="text-xs text-ink-light mb-2">This game isn&apos;t in your library or catalog.</p>
+        <Link to="/" className="text-sm text-accent hover:text-accent-hover transition-colors">
+          Go home →
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-canvas">
 
       {/* ══════════════════════════════════════════════════════════════════
-          HERO — large image, title, tags, rating, CTA
+          HERO — large image, title, tags, rating, save
       ══════════════════════════════════════════════════════════════════ */}
-      <GameHero game={game} />
+      <DetailHero
+        type="game"
+        backdropUrl={game.image}
+        emoji={game.emoji}
+        title={game.name}
+        tagline={game.tagline}
+        tags={game.tags}
+        meta={[
+          game.rating != null && { value: String(game.rating), icon: 'star' },
+          game.price  != null && { value: game.price === 0 ? 'Free to Play' : `$${game.price.toFixed(2)}`, bold: true },
+        ].filter(Boolean)}
+        isSaved={isSaved}
+        onToggleSave={() => {
+          if (isSaved) { removeGame(id); toast('Removed from library'); }
+          else         { addGame(game);  toast(`Saved — ${game.name}`); }
+        }}
+      />
 
       <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
 
         {/* ════════════════════════════════════════════════════════════════
             GAME INFO — short description + metadata
         ════════════════════════════════════════════════════════════════ */}
-        <section className="pt-12 pb-2">
+        <section className={`pt-12 ${catalogGame ? 'pb-2' : 'pb-20'}`}>
           <div className="flex flex-col sm:flex-row gap-8">
             {/* Description */}
             <div className="flex-1 min-w-0">
@@ -165,44 +225,37 @@ export default function GameDetailPage() {
           </div>
         </section>
 
-        {/* ════════════════════════════════════════════════════════════════
-            MEDIA — game capsule art / alternate images
-        ════════════════════════════════════════════════════════════════ */}
-        <div className="border-t border-line mt-12" />
+        {/* Related sections — only available for curated catalog games */}
+        {catalogGame && (
+          <>
+            <div className="border-t border-line mt-12" />
 
-        {/* ════════════════════════════════════════════════════════════════
-            RELATED MOVIES — prominent, NOT secondary
-        ════════════════════════════════════════════════════════════════ */}
-        <section className="pt-12">
-          <SectionHead
-            overline="Films"
-            title={`Movies for ${game.name} fans`}
-            subtitle={moviesLoading ? undefined : `${relatedMovies.length} titles matched`}
-            color="amber"
-          />
-          <DiscoveryRow items={relatedMovies} type="movie" isLoading={moviesLoading} />
-        </section>
+            <section className="pt-12">
+              <SectionHead
+                overline="Films"
+                title={`Movies for ${game.name} fans`}
+                subtitle={moviesLoading ? undefined : `${relatedMovies.length} titles matched`}
+                color="amber"
+              />
+              <DiscoveryRow items={relatedMovies} type="movie" isLoading={moviesLoading} />
+            </section>
 
-        {/* ════════════════════════════════════════════════════════════════
-            RELATED SERIES — prominent, NOT secondary
-        ════════════════════════════════════════════════════════════════ */}
-        <section className="pt-14">
-          <SectionHead
-            overline="Series"
-            title={`Shows that match ${game.name}`}
-            subtitle={seriesLoading ? undefined : `${relatedSeries.length} titles matched`}
-            color="violet"
-          />
-          <DiscoveryRow items={relatedSeries} type="series" isLoading={seriesLoading} />
-        </section>
+            <section className="pt-14">
+              <SectionHead
+                overline="Series"
+                title={`Shows that match ${game.name}`}
+                subtitle={seriesLoading ? undefined : `${relatedSeries.length} titles matched`}
+                color="violet"
+              />
+              <DiscoveryRow items={relatedSeries} type="series" isLoading={seriesLoading} />
+            </section>
 
-        {/* ════════════════════════════════════════════════════════════════
-            SIMILAR GAMES
-        ════════════════════════════════════════════════════════════════ */}
-        <section className="pt-14 pb-20">
-          <SectionHead overline="Similar games" title="You might also like" color="accent" />
-          <GameRow games={similarGames} cardWidth="w-44 sm:w-52" />
-        </section>
+            <section className="pt-14 pb-20">
+              <SectionHead overline="Similar games" title="You might also like" color="accent" />
+              <GameRow games={similarGames} cardWidth="w-44 sm:w-52" />
+            </section>
+          </>
+        )}
 
       </div>
     </div>

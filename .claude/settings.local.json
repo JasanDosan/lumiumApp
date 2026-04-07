@@ -18,7 +18,9 @@
       "Bash(node -e \"const v = require\\(''./package.json''\\); console.log\\(''vite:'', v.dependencies?.vite || v.devDependencies?.vite\\); console.log\\(''react:'', v.dependencies?.react\\)\")",
       "Bash(find C:UsersjavieDesktopappMoviesfrontendsrcfeatures -name *Store.js -o -name *store.js)",
       "Bash(ls:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(grep:*)",
+      "Bash(find C:UsersjavieDesktopappMoviesfrontendsrc -name *.jsx -o -name *.js)"
     ]
   }
 }

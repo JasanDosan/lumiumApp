@@ -205,6 +205,41 @@ const normalizeTV = (show) => ({
   mediaType:   'tv',
 });
 
+export const getTVDetails = async (tmdbId) => {
+  const { data } = await tmdb.get(`/tv/${tmdbId}`, {
+    params: { append_to_response: 'credits' },
+  });
+  return {
+    tmdbId:           data.id,
+    title:            data.name,
+    overview:         data.overview,
+    posterPath:       data.poster_path,
+    posterUrl:        buildImageUrl(data.poster_path),
+    backdropUrl:      buildImageUrl(data.backdrop_path, 'w1280'),
+    rating:           data.vote_average,
+    voteCount:        data.vote_count,
+    firstAirDate:     data.first_air_date,
+    lastAirDate:      data.last_air_date,
+    numberOfSeasons:  data.number_of_seasons,
+    numberOfEpisodes: data.number_of_episodes,
+    status:           data.status,
+    originalLanguage: data.original_language,
+    genres:           data.genres ?? [],
+    createdBy: (data.created_by ?? []).map(c => ({ id: c.id, name: c.name })),
+    cast: (data.credits?.cast ?? []).slice(0, 20).map(c => ({
+      id:         c.id,
+      name:       c.name,
+      character:  c.character,
+      profileUrl: buildImageUrl(c.profile_path, 'w185'),
+    })),
+  };
+};
+
+export const getSimilarTV = async (tmdbId) => {
+  const { data } = await tmdb.get(`/tv/${tmdbId}/similar`);
+  return data.results.map(normalizeTV);
+};
+
 export const getTrendingTV = async (timeWindow = 'week') => {
   const { data } = await tmdb.get(`/trending/tv/${timeWindow}`);
   return data.results.map(normalizeTV);

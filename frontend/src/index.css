@@ -48,10 +48,18 @@
     border-top: 1px solid #1e1e2a;
   }
 
-  /* Focus ring */
+  /* Focus ring — applies globally to keyboard-navigated elements */
   *:focus-visible {
     outline: 2px solid #8b5cf6;
     outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Active press feedback — subtle scale for all interactive controls */
+  button:not(:disabled):active,
+  [role="button"]:not(:disabled):active {
+    transform: scale(0.97);
+    transition-duration: 0.08s !important;
   }
 
   /* Primary gradient button */
@@ -96,4 +104,36 @@
     scrollbar-width: none;
   }
   .scroll-row::-webkit-scrollbar { display: none; }
+}
+
+/* ─── Reduced motion — disable all animations and shorten transitions ────────
+   Users who have opted into "reduce motion" in their OS settings get a
+   still, instant-transition experience instead of animations.             */
+@media (prefers-reduced-motion: reduce) {
+  /* Kill skeleton shimmer — show a static dim background instead */
+  .skeleton {
+    animation: none !important;
+    background-image: none !important;
+    background-color: #1f1f2e !important;
+  }
+
+  /* Disable page / tab / toast animations */
+  .animate-fade-in,
+  .animate-fade-up,
+  .animate-slide-up,
+  .animate-shimmer {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Kill all remaining keyframe animations and shorten transitions */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

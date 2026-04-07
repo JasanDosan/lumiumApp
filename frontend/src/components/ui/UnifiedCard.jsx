@@ -7,8 +7,9 @@ import { Link } from 'react-router-dom';
  *
  * Interaction model:
  *   - If `onClick` is provided → all types use it (inline expansion mode).
- *   - Movies with no onClick → navigate to /movie/:id (search/discover pages).
- *   - Games/Series with no onClick → non-interactive display.
+ *   - Movies with no onClick  → navigate to /movie/:tmdbId.
+ *   - Series with no onClick  → navigate to /series/:tmdbId.
+ *   - Games with no onClick   → navigate to /game/:id.
  *
  * isActive → shows accent ring (item is currently expanded).
  * onAddToLibrary → if provided, shows a small "+" library overlay button.
@@ -35,8 +36,10 @@ export default function UnifiedCard({
   const rating = item.rating;
   const year   = item.releaseDate?.slice(0, 4);
 
-  const handleClick = onClick ?? null;
-  const movieHref   = (!onClick && type === 'movie') ? `/movie/${item.tmdbId}` : null;
+  const handleClick  = onClick ?? null;
+  const movieHref    = (!onClick && type === 'movie')  ? `/movie/${item.tmdbId}`                : null;
+  const seriesHref   = (!onClick && type === 'series') ? `/series/${item.tmdbId ?? item.id}`    : null;
+  const gameHref     = (!onClick && type === 'game')   ? `/game/${item.id ?? item.rawId}`       : null;
 
   const inner = (
     <div
@@ -125,9 +128,9 @@ export default function UnifiedCard({
     );
   }
 
-  if (movieHref) {
+  if (movieHref || seriesHref || gameHref) {
     return (
-      <Link to={movieHref} className="block animate-fade-in">
+      <Link to={(movieHref ?? seriesHref ?? gameHref)} className="block animate-fade-in">
         {inner}
       </Link>
     );
