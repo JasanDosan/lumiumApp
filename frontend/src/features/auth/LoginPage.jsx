@@ -27,7 +27,7 @@ export default function LoginPage() {
 
         <div className="mb-10 text-center">
           <Link to="/" className="inline-block mb-6">
-            <span className="text-sm font-semibold tracking-[0.15em] uppercase text-ink">Pellicola</span>
+            <span className="text-sm font-semibold tracking-[0.15em] uppercase text-ink">LUMIUM</span>
           </Link>
           <h1 className="text-xl font-semibold text-ink">Welcome back</h1>
           <p className="text-sm text-ink-light mt-1">Sign in to continue</p>

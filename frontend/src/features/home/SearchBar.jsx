@@ -189,7 +189,7 @@ export default function SearchBar({ query, onChange, onClear, placeholder = 'Sea
               className="w-full px-4 py-3 text-left text-[12px] font-medium text-ink-mid
                          hover:bg-neutral-50 border-t border-line transition-colors"
             >
-              See all results for "{query}" →
+              See all results for &ldquo;{query}&rdquo; →
             </button>
           )}
 

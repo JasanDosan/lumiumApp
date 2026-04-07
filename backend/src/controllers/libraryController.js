@@ -1,47 +1,88 @@
 import { AppError } from '../middleware/errorHandler.js';
-import { findUserById, pushLibraryItem, pullLibraryItem, setLibraryItemField } from '../repositories/userRepository.js';
+import {
+  findUserById,
+  pushLibraryItem,
+  pullLibraryItem,
+  setLibraryItemField,
+} from '../repositories/userRepository.js';
 
-const ALLOWED_UPDATE_FIELDS = ['rating', 'emoji'];
+const VALID_TYPES   = ['game', 'movie', 'series'];
+const VALID_SOURCES = ['tmdb', 'rawg', 'manual'];
+
+// Fields a PATCH can mutate (everything else is immutable after insert)
+const ALLOWED_UPDATE_FIELDS = ['rating', 'emoji', 'metadata'];
+
+/**
+ * Derive the compound `id` from whatever identifying fields the client sends.
+ * Priority: explicit `id` field → type + externalId → type + rawId/tmdbId.
+ * Returns null if no usable ID can be derived.
+ */
+function deriveId(type, body) {
+  if (body.id && String(body.id).includes('_')) return body.id; // already compound
+  const raw = body.externalId ?? body.rawId ?? body.tmdbId ?? body.id;
+  if (!raw) return null;
+  return `${type}_${raw}`;
+}
+
+// ─── GET /library ─────────────────────────────────────────────────────────────
 
 export const getLibrary = async (req, res, next) => {
   try {
     const user = await findUserById(req.user._id);
-    console.log('GET LIBRARY:', user.library.length, 'items for user', req.user._id);
     res.json(user.library);
   } catch (error) {
     next(error);
   }
 };
 
+// ─── POST /library ────────────────────────────────────────────────────────────
+
 export const addToLibrary = async (req, res, next) => {
   try {
-    console.log('ADD:', req.body);
+    const {
+      // Identity
+      type, externalId, source,
+      // Display
+      title, imageUrl, image,
+      // Classification
+      rating, genres, tags,
+      // TMDB-specific
+      rawId, tmdbId, posterPath, backdropUrl, posterUrl, releaseDate,
+      // UI
+      emoji,
+      // Extensible payload
+      metadata,
+    } = req.body;
 
-    const { id, type, title, image, rating, genres, tags, rawId,
-            tmdbId, posterPath, backdropUrl, posterUrl, releaseDate, emoji } = req.body;
-
-    if (!type || !title) {
-      throw new AppError('type and title are required.', 400);
+    if (!type || !title) throw new AppError('type and title are required.', 400);
+    if (!VALID_TYPES.includes(type)) {
+      throw new AppError(`type must be one of: ${VALID_TYPES.join(', ')}.`, 400);
     }
-    if (!['game', 'movie', 'series'].includes(type)) {
-      throw new AppError('type must be game, movie, or series.', 400);
-    }
 
-    // Normalize ID to prevent collisions across sources
-    const normalizedId = `${type}_${rawId || tmdbId || id}`;
+    const normalizedId = deriveId(type, req.body);
+    if (!normalizedId) throw new AppError('A unique item ID could not be derived. Provide id, externalId, tmdbId, or rawId.', 400);
 
-    // Fetch fresh user — req.user is stale after previous writes
     const user = await findUserById(req.user._id);
-    console.log('USER LIBRARY:', user.library.map(i => i.id));
+    if (user.library.some(item => item.id === normalizedId)) {
+      return res.json(user.library); // idempotent — already in library
+    }
 
-    const alreadyAdded = user.library.some(item => item.id === normalizedId);
-    if (alreadyAdded) return res.json(user.library);
+    // Resolve imageUrl: prefer explicit imageUrl, fall back to legacy image field
+    const resolvedImageUrl = imageUrl ?? image ?? null;
+
+    // Resolve source: explicit > infer from type
+    const resolvedSource = source && VALID_SOURCES.includes(source)
+      ? source
+      : type === 'game' ? 'rawg' : 'tmdb';
 
     const newItem = {
       id:          normalizedId,
+      externalId:  externalId ?? String(rawId ?? tmdbId ?? ''),
+      source:      resolvedSource,
       type,
       title,
-      image:       image       ?? null,
+      imageUrl:    resolvedImageUrl,
+      image:       resolvedImageUrl,      // keep in sync for backward compat
       rating:      rating      ?? null,
       genres:      genres      ?? [],
       tags:        tags        ?? [],
@@ -52,6 +93,7 @@ export const addToLibrary = async (req, res, next) => {
       posterUrl:   posterUrl   ?? undefined,
       releaseDate: releaseDate ?? undefined,
       emoji:       emoji       ?? undefined,
+      metadata:    metadata    ?? {},
       addedAt:     new Date(),
     };
 
@@ -62,28 +104,26 @@ export const addToLibrary = async (req, res, next) => {
   }
 };
 
+// ─── DELETE /library/:id ──────────────────────────────────────────────────────
+
 export const removeFromLibrary = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    console.log('REMOVE:', id, 'for user', req.user._id);
-
-    const updated = await pullLibraryItem(req.user._id, id);
+    const updated = await pullLibraryItem(req.user._id, req.params.id);
     res.json(updated.library);
   } catch (error) {
     next(error);
   }
 };
 
+// ─── PUT /library/:id ─────────────────────────────────────────────────────────
+
 export const updateLibraryItem = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    // Restrict to allowed fields only
     const updates = {};
     for (const field of ALLOWED_UPDATE_FIELDS) {
       if (field in req.body) updates[field] = req.body[field];
     }
-
     if (Object.keys(updates).length === 0) {
       throw new AppError(`Only ${ALLOWED_UPDATE_FIELDS.join(', ')} can be updated.`, 400);
     }

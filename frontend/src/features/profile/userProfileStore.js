@@ -15,7 +15,7 @@ function load() {
 }
 
 function save(profile) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(profile)); } catch (_) {}
+  try { localStorage.setItem(LS_KEY, JSON.stringify(profile)); } catch (_) { /* storage unavailable */ }
 }
 
 export const useUserProfileStore = create((set, get) => ({

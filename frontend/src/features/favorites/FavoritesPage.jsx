@@ -14,7 +14,7 @@ export default function FavoritesPage() {
           <h1 className="text-2xl font-semibold text-ink">Collection</h1>
           {!isLoading && (
             <p className="text-sm text-ink-light mt-1">
-              {movies.length} {movies.length === 1 ? 'film' : 'films'}
+              {movies.length} {movies.length === 1 ? 'item' : 'items'}
             </p>
           )}
         </div>
@@ -34,13 +34,13 @@ export default function FavoritesPage() {
       <MovieGrid
         movies={movies}
         isLoading={isLoading}
-        emptyMessage="Nothing saved yet — browse films and hit the bookmark to save them."
+        emptyMessage="Nothing saved yet — explore and bookmark titles to save them."
       />
 
       {!isLoading && movies.length === 0 && (
         <div className="mt-8 text-center">
           <Link to="/" className="text-sm text-ink-mid hover:text-ink transition-colors">
-            Browse films →
+            Explore →
           </Link>
         </div>
       )}

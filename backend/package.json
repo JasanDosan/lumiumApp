@@ -1,7 +1,7 @@
 {
-  "name": "appmovies-backend",
+  "name": "lumium-backend",
   "version": "1.0.0",
-  "description": "Movie recommendations API",
+  "description": "Lumium media recommendations API",
   "type": "module",
   "main": "src/server.js",
   "scripts": {

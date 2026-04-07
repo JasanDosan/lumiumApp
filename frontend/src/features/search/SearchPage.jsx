@@ -328,10 +328,8 @@ export default function SearchPage() {
     setSearchParams({ q });
   }, [setSearchParams]);
 
-  const handleInputChange = useCallback((e) => {
-    // Keep controlled-ish without extra state — just read on submit
-    // but also allow Enter key via form onSubmit
-    e.target.value = e.target.value; // noop, value tracked by DOM
+  const handleInputChange = useCallback((_e) => {
+    // Value is read on submit via inputRef — no state needed here
   }, []);
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -381,7 +379,7 @@ export default function SearchPage() {
                   : 'No results'}
             </p>
             {!isFirstLoad && (
-              <h1 className="text-2xl font-bold text-ink">"{state.query}"</h1>
+              <h1 className="text-2xl font-bold text-ink">&ldquo;{state.query}&rdquo;</h1>
             )}
             {!isFirstLoad && state.results.length > 0 && (
               <p className="text-xs text-ink-light mt-1">
@@ -448,7 +446,7 @@ export default function SearchPage() {
         {/* No results (query exists, loaded, nothing found) */}
         {!isFirstLoad && !state.isLoading && state.query && state.results.length === 0 && !state.error && (
           <div className="py-20 text-center">
-            <p className="text-sm text-ink-light">No films found for "{state.query}"</p>
+            <p className="text-sm text-ink-light">No results for &ldquo;{state.query}&rdquo;</p>
           </div>
         )}
 

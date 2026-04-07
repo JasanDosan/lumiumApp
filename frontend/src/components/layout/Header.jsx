@@ -292,7 +292,7 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="shrink-0">
             <span className="text-sm font-semibold tracking-[0.14em] uppercase text-ink">
-              Pellicola
+              LUMIUM
             </span>
           </Link>
 

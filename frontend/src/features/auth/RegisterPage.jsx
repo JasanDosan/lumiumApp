@@ -38,10 +38,10 @@ export default function RegisterPage() {
 
         <div className="mb-10 text-center">
           <Link to="/" className="inline-block mb-6">
-            <span className="text-sm font-semibold tracking-[0.15em] uppercase text-ink">Pellicola</span>
+            <span className="text-sm font-semibold tracking-[0.15em] uppercase text-ink">LUMIUM</span>
           </Link>
           <h1 className="text-xl font-semibold text-ink">Create your account</h1>
-          <p className="text-sm text-ink-light mt-1">Start discovering great films</p>
+          <p className="text-sm text-ink-light mt-1">Start discovering</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { movieService } from '@/services/movieService';
 import MovieRow from './MovieRow';
-import SectionWrapper from '@/components/ui/SectionWrapper';
 
 // ─── Region detection ─────────────────────────────────────────────────────────
 
@@ -139,7 +138,7 @@ export default function MoviesPage() {
             <p className="section-label mb-2">Streaming</p>
             <h1 className="text-3xl font-bold text-ink">Where to Watch</h1>
             <p className="text-sm text-ink-light mt-1.5">
-              What's available to stream in <span className="text-ink font-medium">{regionLabel}</span>
+              What&apos;s available to stream in <span className="text-ink font-medium">{regionLabel}</span>
             </p>
           </div>
 

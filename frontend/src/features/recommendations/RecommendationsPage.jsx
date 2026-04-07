@@ -34,13 +34,13 @@ export default function RecommendationsPage() {
       <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-20">
         <div className="max-w-xs">
           <p className="section-label mb-2">Not enough data</p>
-          <h1 className="text-xl font-semibold text-ink mb-2">Add more films first</h1>
+          <h1 className="text-xl font-semibold text-ink mb-2">Add more titles first</h1>
           <p className="text-sm text-ink-light leading-relaxed mb-6">
-            You need at least 2 saved films.
+            You need at least 2 saved titles.
             You currently have {libraryMovies.length}.
           </p>
           <Link to="/" className="text-sm text-ink-mid hover:text-ink transition-colors">
-            Browse films →
+            Explore →
           </Link>
         </div>
       </div>
@@ -56,7 +56,7 @@ export default function RecommendationsPage() {
           <h1 className="text-2xl font-semibold text-ink">Recommendations</h1>
           {libraryMovies[0]?.title && (
             <p className="text-sm text-ink-light mt-1">
-              Because you watched <span className="text-ink-mid">{libraryMovies[0].title}</span>
+              Because you saved <span className="text-ink-mid">{libraryMovies[0].title}</span>
               {libraryMovies.length > 1 && ` + ${libraryMovies.length - 1} other${libraryMovies.length > 2 ? 's' : ''}`}
             </p>
           )}
@@ -80,7 +80,7 @@ export default function RecommendationsPage() {
         movies={movies}
         isLoading={isLoading}
         error={error}
-        emptyMessage="No recommendations yet. Try adding more diverse films."
+        emptyMessage="No recommendations yet. Try saving more titles."
         showScore
       />
     </div>

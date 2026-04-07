@@ -422,7 +422,6 @@ function DetailSkeleton() {
 export default function MovieDetailPage() {
   const { id } = useParams();
   const { addItem, removeItem, hasMovie } = useUserLibraryStore();
-  const { isAuthenticated } = useAuthStore();
 
   const [movie, setMovie]               = useState(null);
   const [similar, setSimilar]           = useState([]);

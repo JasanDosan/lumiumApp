@@ -234,7 +234,7 @@ export default function DiscoverPage() {
       .finally(() => { if (!cancelled) setGridLoading(false); });
 
     return () => { cancelled = true; };
-  }, [debouncedFilters, gridPage]); // eslint-disable-line
+  }, [debouncedFilters, gridPage]);
 
   // ── IntersectionObserver: next page ───────────────────────────────────────
   useEffect(() => {

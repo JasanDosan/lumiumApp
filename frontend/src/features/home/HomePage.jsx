@@ -9,7 +9,6 @@ import { useGameStore } from '@/features/games/gameStore';
 import { useLibraryStore, useUserLibraryStore } from '@/features/library/libraryStore';
 import { useUserProfileStore } from '@/features/profile/userProfileStore';
 import BecauseYouPlayed from './BecauseYouPlayed';
-import UnifiedCard from '@/components/ui/UnifiedCard';
 import ExpandableRow from '@/components/ui/ExpandableRow';
 import InlineDetail from '@/components/ui/InlineDetail';
 
@@ -310,7 +309,7 @@ function HeroSearch({ onCategoryClick }) {
       <div className="w-full max-w-2xl">
         {/* Headline */}
         <p className="text-[10px] font-black tracking-[0.28em] uppercase text-accent text-center mb-4">
-          Pellicola
+          LUMIUM
         </p>
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-ink text-center leading-[1.05] tracking-[-0.02em] mb-3">
           Discover your next<br />
@@ -575,12 +574,14 @@ function MyLibrarySection() {
   const { games, movies, series, removeItem } = useUserLibraryStore();
 
   const total = games.length + movies.length + series.length;
-  if (!total) return null;
 
+  // Hook must be unconditional — compute before early return
   const expandedGame = useMemo(
     () => games.find(g => g.id === expandedGameId) ?? null,
     [games, expandedGameId],
   );
+
+  if (!total) return null;
 
   return (
     <section className="border-t border-b border-line bg-surface">
@@ -869,8 +870,7 @@ function NewsColumn({ items, isLoading }) {
 export default function HomePage() {
   const { isAuthenticated } = useAuthStore();
 
-  const { selectedGameId, selectGame } = useGameStore();
-  const { games: myGames }            = useLibraryStore();
+  const { games: myGames } = useLibraryStore();
 
   // ── Category explorer — multi-select + ordering + platform + tags + mode ──
   const [selectedGenres, setSelectedGenres]             = useState([]);
@@ -978,11 +978,6 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [selectedGenres, selectedTags, selectedGameMode, orderBy, selectedPlatform]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selectedCategoryLabels = useMemo(
-    () => selectedGenres.map(id => CATEGORIES.find(c => c.id === id)?.label).filter(Boolean),
-    [selectedGenres],
-  );
-
   // All active filter labels for the summary bar
   const activeFilterLabels = useMemo(() => {
     const parts = [
@@ -992,7 +987,7 @@ export default function HomePage() {
       ...(selectedPlatform !== null ? [PLATFORM_OPTIONS.find(p => p.value === selectedPlatform)?.label].filter(Boolean) : []),
     ];
     return parts;
-  }, [selectedGenres, selectedTags, selectedGameMode, selectedPlatform]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedGenres, selectedTags, selectedGameMode, selectedPlatform]);
 
   // ── RAWG trending (must be declared before hero memos that depend on it) ──
   const [rawgGames, setRawgGames]     = useState([]);
@@ -1052,7 +1047,7 @@ export default function HomePage() {
       .finally(() => { if (!cancelled) setRecommendedLoading(false); });
 
     return () => { cancelled = true; };
-  }, [myGames]); // re-run when games library changes (adding games records interactions) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [myGames, getTopPreference, totalInteractions]); // re-run when library changes
 
   // ── Static fetches ────────────────────────────────────────────────────────
   const staticFetchDone = useRef(false);
@@ -1487,9 +1482,9 @@ export default function HomePage() {
       <footer className="border-t border-line py-10 px-5 sm:px-8 lg:px-12">
         <div className="max-w-screen-xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold tracking-[0.14em] uppercase text-ink">Pellicola</p>
+            <p className="text-sm font-semibold tracking-[0.14em] uppercase text-ink">LUMIUM</p>
             <p className="text-xs text-ink-light mt-1">
-              Discover films and series from the games you love.
+              Games, movies, and series &mdash; all in one place.
             </p>
           </div>
           <div className="flex items-center gap-5">

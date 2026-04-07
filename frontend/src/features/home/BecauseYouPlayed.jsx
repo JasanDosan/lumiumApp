@@ -314,7 +314,7 @@ export default function BecauseYouPlayed() {
     }
 
     return () => { cancelled = true; };
-  }, [selectedItem]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedItem]);
 
   const allContent  = { movies: recMovies, series: recSeries, games: recGames };
   const orderedTypes = TAB_ORDER[activeTab];

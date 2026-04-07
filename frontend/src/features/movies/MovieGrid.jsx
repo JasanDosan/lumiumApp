@@ -4,7 +4,7 @@ export default function MovieGrid({
   movies = [],
   isLoading = false,
   error = null,
-  emptyMessage = 'No films found.',
+  emptyMessage = 'No results found.',
   showScore = false,
 }) {
   if (isLoading) {

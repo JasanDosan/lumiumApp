@@ -40,8 +40,27 @@ export default function MovieCard({ movie, showScore = false, to }) {
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 rounded-md" />
 
         {showScore && movie.score != null && (
-          <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
-            {movie.score.toFixed(1)}
+          <div className="group/score absolute top-2 left-2 z-10">
+            {/* Score badge */}
+            <div className="bg-black/70 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-full cursor-default">
+              {movie.score.toFixed(1)}
+            </div>
+
+            {/* Explanation tooltip — only rendered when data is present */}
+            {movie.explanation?.length > 0 && (
+              <div
+                className="pointer-events-none absolute top-full left-0 mt-1.5
+                           hidden group-hover/score:block
+                           bg-black/90 backdrop-blur-sm text-white rounded-xl
+                           px-3 py-2.5 w-48 space-y-1 shadow-lg"
+              >
+                {movie.explanation.map((line, i) => (
+                  <p key={i} className="text-[10px] leading-snug">
+                    {i === 0 ? '★ ' : '· '}{line}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

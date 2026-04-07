@@ -1,6 +1,17 @@
+/**
+ * movieService.js
+ *
+ * Wraps all /api/movies/* endpoints. The export is being progressively renamed
+ * to `mediaDiscoveryService` to reflect that the service is media-agnostic at
+ * the API layer. Both names are exported; new code should import
+ * `mediaDiscoveryService`, existing call sites can migrate incrementally.
+ *
+ * @see mediaDiscoveryService (canonical name going forward)
+ * @deprecated movieService — use mediaDiscoveryService in new code
+ */
 import api from './api';
 
-export const movieService = {
+export const mediaDiscoveryService = {
   search: (query, page = 1) =>
     api.get('/movies/search', { params: { q: query, page } }).then(r => r.data),
 
@@ -49,3 +60,6 @@ export const movieService = {
   getCollection: (id) =>
     api.get(`/movies/collection/${id}`).then(r => r.data),
 };
+
+/** @deprecated Use mediaDiscoveryService in new code. */
+export const movieService = mediaDiscoveryService;
