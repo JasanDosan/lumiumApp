@@ -137,7 +137,7 @@ function BecauseYouLike({ categoryId, games = [], movies = [], series = [], isLo
   const backdropImage = games[0]?.image ?? null;
 
   return (
-    <section className="pt-14 relative overflow-hidden">
+    <section className="relative overflow-hidden">
       {/* Ambient backdrop from top game */}
       {backdropImage && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -153,6 +153,7 @@ function BecauseYouLike({ categoryId, games = [], movies = [], series = [], isLo
           overline="Picked for you"
           title={`${cat?.emoji ?? '🎮'} Because you like ${cat?.label ?? categoryId}`}
           color="violet"
+          size="xl"
         />
         {isLoading ? (
           <div className="flex gap-3 overflow-hidden">
@@ -185,7 +186,7 @@ function getCategoryImage(tag) {
 
 // ─── Section header ───────────────────────────────────────────────────────────
 
-function SectionHead({ overline, title, color = 'default', action }) {
+function SectionHead({ overline, title, color = 'default', action, size }) {
   const colorMap = {
     accent:  { bar: 'bg-accent',     over: 'text-accent' },
     amber:   { bar: 'bg-amber-500',  over: 'text-amber-400' },
@@ -193,6 +194,9 @@ function SectionHead({ overline, title, color = 'default', action }) {
     default: { bar: 'bg-line',       over: 'text-ink-light' },
   };
   const c = colorMap[color] ?? colorMap.default;
+  const titleClass = size === 'xl'
+    ? 'text-3xl sm:text-4xl font-black tracking-[-0.02em]'
+    : 'title-lg';
   return (
     <div className="flex items-end justify-between gap-4 mb-5">
       <div>
@@ -200,7 +204,7 @@ function SectionHead({ overline, title, color = 'default', action }) {
           <div className={`w-0.5 h-5 ${c.bar} rounded-full shrink-0`} />
           <p className={`text-[10px] font-black tracking-[0.2em] uppercase ${c.over}`}>{overline}</p>
         </div>
-        <h2 className="title-lg">{title}</h2>
+        <h2 className={titleClass}>{title}</h2>
       </div>
       {action}
     </div>
@@ -842,45 +846,61 @@ export default function HomePage() {
           2. RECENTLY SAVED
       ══════════════════════════════════════════════════════════════════ */}
       <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
+        <p className="text-[10px] font-black tracking-[0.2em] uppercase text-ink-light mb-3">SAVED</p>
         <RecentlySaved />
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-          3. BECAUSE YOU PLAYED
+          3. BECAUSE YOU PLAYED — full-bleed editorial band
       ══════════════════════════════════════════════════════════════════ */}
-      <div id="because-you-played" className="pt-14 max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-        <BecauseYouPlayed />
+      <div id="because-you-played" className="bg-surface border-y border-line py-14 mt-14">
+        <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
+          <p className="text-[10px] font-black tracking-[0.28em] uppercase text-accent mb-3">
+            BECAUSE YOU PLAYED
+          </p>
+          <BecauseYouPlayed />
+        </div>
       </div>
 
+      {/* ══════════════════════════════════════════════════════════════════
+          4. TRENDING NOW
+      ══════════════════════════════════════════════════════════════════ */}
       <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-
-        {/* ════════════════════════════════════════════════════════════════
-            4. TRENDING NOW (games + movies + series)
-        ════════════════════════════════════════════════════════════════ */}
+        <div className="pt-16 pb-2">
+          <p className="text-[10px] font-black tracking-[0.28em] uppercase text-amber-400 mb-2">RIGHT NOW</p>
+          <h2 className="text-4xl sm:text-5xl font-black text-ink leading-none tracking-[-0.02em] mb-1">Trending</h2>
+          <p className="text-sm text-ink-light mb-8">What everyone is playing, watching, and saving</p>
+        </div>
         <TrendingNow />
+      </div>
 
-        {/* ════════════════════════════════════════════════════════════════
-            5. BECAUSE YOU LIKE — profile-driven mixed section
-        ════════════════════════════════════════════════════════════════ */}
-        <BecauseYouLike
-          categoryId={becauseCategoryId}
-          games={recommendedGames}
-          movies={becauseMovies}
-          series={becauseSeries}
-          isLoading={recommendedLoading}
-        />
+      {/* ══════════════════════════════════════════════════════════════════
+          5. BECAUSE YOU LIKE — full-bleed accent band
+      ══════════════════════════════════════════════════════════════════ */}
+      <div className="bg-surface border-y border-line py-14 mt-14">
+        <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
+          <BecauseYouLike
+            categoryId={becauseCategoryId}
+            games={recommendedGames}
+            movies={becauseMovies}
+            series={becauseSeries}
+            isLoading={recommendedLoading}
+          />
+        </div>
+      </div>
 
-        {/* ════════════════════════════════════════════════════════════════
-            6. BROWSE BY CATEGORY
-        ════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════════════
+          6. BROWSE BY CATEGORY
+      ══════════════════════════════════════════════════════════════════ */}
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
         <section id="browse-categories" className="pt-14">
         <div className="flex items-end justify-between gap-4 mb-5">
           <div>
             <div className="flex items-center gap-2.5 mb-2">
               <div className="w-0.5 h-5 bg-accent rounded-full shrink-0" />
-              <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent">Explore</p>
+              <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent">DISCOVER</p>
             </div>
-            <h2 className="title-lg">Browse by Category</h2>
+            <h2 className="title-lg">What are you in the mood for?</h2>
           </div>
           {anyFilterActive && (
             <button
