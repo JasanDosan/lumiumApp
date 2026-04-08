@@ -7,7 +7,7 @@ import {
 } from '../repositories/userRepository.js';
 
 const VALID_TYPES   = ['game', 'movie', 'series'];
-const VALID_SOURCES = ['tmdb', 'rawg', 'manual'];
+const VALID_SOURCES = ['tmdb', 'rawg', 'steam', 'manual'];
 
 // Fields a PATCH can mutate (everything else is immutable after insert)
 const ALLOWED_UPDATE_FIELDS = ['rating', 'emoji', 'metadata'];

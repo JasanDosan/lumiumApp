@@ -6,6 +6,37 @@ const rawg = axios.create({
   timeout: 10000,
 });
 
+// ─── Retry interceptor (mirrors tmdbService.js) ───────────────────────────────
+
+const RETRYABLE  = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRIES = 3;
+
+rawg.interceptors.response.use(null, async (error) => {
+  const config = error.config;
+  if (!config) return Promise.reject(error);
+
+  const status = error.response?.status;
+
+  // Explicit API-key error — log and bail immediately, no retry
+  if (status === 401 || status === 403) {
+    console.error('❌ RAWG API key inválida o no configurada');
+    return Promise.reject(error);
+  }
+
+  config.__retries = (config.__retries ?? 0) + 1;
+
+  if (config.__retries <= MAX_RETRIES && RETRYABLE.has(status)) {
+    const retryAfter = error.response?.headers?.['retry-after'];
+    const delay = retryAfter
+      ? Number(retryAfter) * 1000
+      : 2 ** config.__retries * 300;
+    await new Promise(r => setTimeout(r, delay));
+    return rawg(config);
+  }
+
+  return Promise.reject(error);
+});
+
 // ─── Normalisation ────────────────────────────────────────────────────────────
 
 /**
@@ -69,7 +100,6 @@ export const searchGames = async (query, count = 12) => {
       page_size: count,
     },
   });
-  // data.results — axios puts the parsed JSON body in data
   return (data.results ?? []).map(normalizeGame);
 };
 
@@ -141,10 +171,6 @@ export const getGamesByMultiCategory = async (categoryIds, {
   if (platform)           params.platforms = platform;
 
   const { data } = await rawg.get('/games', { params });
-
-  console.log('MULTI-CATEGORY RAW:', data);
-  console.log('MULTI-CATEGORY RESULTS:', data.results?.length ?? 0);
-
   return (data.results ?? []).map(normalizeGame);
 };
 
@@ -166,9 +192,6 @@ export const getGamesByCategory = async (categoryId, count = 20) => {
       page_size: count,
     },
   });
-
-  console.log('CATEGORY RAW:', data);
-  console.log('CATEGORY RESULTS:', data.results?.length ?? 0);
 
   return (data.results ?? []).map(normalizeGame);
 };

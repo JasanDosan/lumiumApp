@@ -5,7 +5,7 @@ const libraryItemSchema = new mongoose.Schema({
   // ── Identity ───────────────────────────────────────────────────────────────
   id:         { type: String, required: true },  // compound: "movie_12345", "game_3498"
   externalId: { type: String, default: null },   // raw ID from source ("12345", "3498")
-  source:     { type: String, enum: ['tmdb', 'rawg', 'manual'], default: 'manual' },
+  source:     { type: String, enum: ['tmdb', 'rawg', 'steam', 'manual'], default: 'manual' },
   type:       { type: String, enum: ['game', 'movie', 'series'], required: true },
 
   // ── Display ────────────────────────────────────────────────────────────────

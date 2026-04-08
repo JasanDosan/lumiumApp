@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useLibraryStore } from '@/features/library/libraryStore';
 import { useAuthStore } from '@/features/auth/authStore';
 import { movieService } from '@/services/movieService';
+import { useSteamStore } from '@/features/steam/useSteamStore';
+import { toast } from '@/stores/toastStore';
 import MovieRow from '@/features/movies/MovieRow';
 import SectionWrapper from '@/components/ui/SectionWrapper';
 
@@ -36,6 +38,123 @@ function computeDecades(favorites) {
     .sort((a, b) => b[1] - a[1])
     .map(([decade, count]) => ({ decade: Number(decade), count }));
 }
+
+// ─── Steam connect section ────────────────────────────────────────────────────
+
+function SteamSection() {
+  const { status, error, lastSyncAt, lastSteamId, lastImported, lastTotal, importLibrary, reset } =
+    useSteamStore();
+  const { games } = useLibraryStore();
+
+  const [input, setInput]   = useState(lastSteamId ?? '');
+  const [dirty, setDirty]   = useState(false);
+
+  const steamGames     = games.filter(g => g.source === 'steam');
+  const hasConnected   = !!lastSyncAt;
+  const isLoading      = status === 'loading';
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const val = input.trim();
+    if (!val) return;
+    reset();
+    try {
+      const result = await importLibrary(val);
+      setDirty(false);
+      if (result.imported > 0) {
+        toast(`Imported ${result.imported} game${result.imported !== 1 ? 's' : ''} from Steam`);
+      } else {
+        toast('Library is up to date — no new games to import');
+      }
+    } catch {
+      // error state is set in useSteamStore — no additional handling needed
+    }
+  };
+
+  const syncLabel = isLoading
+    ? 'Importing…'
+    : hasConnected && !dirty
+      ? 'Sync again'
+      : 'Import games';
+
+  return (
+    <section>
+      <div className="mb-5">
+        <p className="section-label mb-1">Steam</p>
+        <h2 className="text-lg font-semibold text-ink">Connect Steam library</h2>
+        <p className="text-sm text-ink-light mt-1 max-w-prose">
+          Import your owned Steam games into your Lumium library. Your Steam profile must be public.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5 max-w-lg">
+        <input
+          type="text"
+          value={input}
+          onChange={e => { setInput(e.target.value); setDirty(true); }}
+          placeholder="Steam profile URL or SteamID64"
+          disabled={isLoading}
+          className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-line bg-surface
+                     text-ink placeholder:text-ink-light
+                     focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/60
+                     disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        />
+        <button
+          type="submit"
+          disabled={isLoading || !input.trim()}
+          className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-semibold bg-ink text-white
+                     hover:bg-ink/80 disabled:opacity-40 disabled:cursor-not-allowed
+                     transition-colors flex items-center gap-2"
+        >
+          {isLoading && (
+            <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+          )}
+          {syncLabel}
+        </button>
+      </form>
+
+      {/* Error state */}
+      {status === 'error' && error && (
+        <p className="mt-3 text-sm text-red-500">{error}</p>
+      )}
+
+      {/* Last sync status */}
+      {hasConnected && status !== 'error' && (
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-light">
+          <span>
+            Last synced{' '}
+            {new Date(lastSyncAt).toLocaleString(undefined, {
+              month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+            })}
+          </span>
+          {lastTotal != null && (
+            <span>
+              {lastImported} new · {steamGames.length} total Steam game{steamGames.length !== 1 ? 's' : ''} in library
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Steam games count badge */}
+      {steamGames.length > 0 && (
+        <div className="mt-5 inline-flex items-center gap-2.5 px-4 py-2 rounded-xl
+                        border border-line bg-surface text-sm">
+          <span className="text-base">🎮</span>
+          <span className="font-semibold text-ink">{steamGames.length}</span>
+          <span className="text-ink-light">Steam game{steamGames.length !== 1 ? 's' : ''} imported</span>
+          <Link
+            to="/library"
+            className="ml-1 text-xs text-accent hover:text-accent-hover transition-colors font-medium"
+          >
+            View in library →
+          </Link>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── ProfilePage ──────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const { user, logout } = useAuthStore();
@@ -148,6 +267,11 @@ export default function ProfilePage() {
 
         {/* ── Sections ───────────────────────────────────────────── */}
         <div className="space-y-12">
+
+          {/* Steam integration */}
+          <SteamSection />
+
+          <div className="border-t border-line" />
 
           {/* Collection */}
           {favMovies.length > 0 && (

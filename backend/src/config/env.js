@@ -7,6 +7,9 @@ const REQUIRED = [
   'JWT_SECRET',
   'TMDB_API_KEY',
   'TMDB_BASE_URL',
+  'RAWG_API_KEY',
+  'RAWG_BASE_URL',
+  'STEAM_API_KEY',
 ];
 
 export const validateEnv = () => {

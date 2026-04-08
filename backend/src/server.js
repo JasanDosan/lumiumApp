@@ -16,6 +16,7 @@ import libraryRoutes from './routes/libraryRoutes.js';
 import personRoutes from './routes/personRoutes.js';
 import tvRoutes from './routes/tvRoutes.js';
 import gameRoutes from './routes/gameRoutes.js';
+import steamRoutes from './routes/steamRoutes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const app = express();
@@ -51,6 +52,7 @@ app.use('/api/library', libraryRoutes);
 app.use('/api/people', personRoutes);
 app.use('/api/tv', tvRoutes);
 app.use('/api/games', gameRoutes);
+app.use('/api/steam', steamRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', environment: process.env.NODE_ENV });

@@ -111,6 +111,32 @@ export function normalizeSeries(s) {
   };
 }
 
+/**
+ * Normalize a Steam-sourced game into a Lumium library item.
+ * This mirrors the shape produced by steamService.js on the backend —
+ * used on the frontend when applying the batch import response to local state.
+ */
+export function normalizeSteamGame(g) {
+  const appId    = String(g.metadata?.steamAppId ?? g.externalId?.replace('steam_', '') ?? '');
+  const imageUrl = g.imageUrl ?? g.image ?? null;
+  return {
+    id:         g.id ?? `game_steam_${appId}`,
+    externalId: g.externalId ?? `steam_${appId}`,
+    source:     'steam',
+    type:       'game',
+    title:      g.title ?? g.name ?? '',
+    imageUrl,
+    image:      imageUrl,
+    rating:     g.rating  ?? null,
+    genres:     [],
+    tags:       g.tags    ?? [],
+    rawId:      g.rawId   ?? undefined,
+    emoji:      g.emoji   ?? '🎮',
+    metadata:   g.metadata ?? {},
+    addedAt:    g.addedAt ?? new Date().toISOString(),
+  };
+}
+
 /** Generic normalizer: `addItem(normalizeItem(data, 'movie'))` */
 export function normalizeItem(item, type) {
   if (type === 'game')   return normalizeGame(item);
