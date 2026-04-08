@@ -236,109 +236,6 @@ function scoreGameCandidates(profile, savedIds, limit = 8) {
   return scored.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
-// ─── V2 Scoring (source-aware, seed-boosted, active-genre-gated) ─────────────
-
-function buildMediaExplanationV2(matchedGenres, adjustedRating, matchedSeedGenreIds) {
-  const parts = [];
-  if (matchedSeedGenreIds.length > 0) {
-    const seedNames = matchedSeedGenreIds.slice(0, 2).map(id => GENRE_NAMES[id]).filter(Boolean);
-    if (seedNames.length >= 2)      parts.push(`Matches the ${seedNames.join(' & ')} of your picks`);
-    else if (seedNames.length === 1) parts.push(`Matches the ${seedNames[0]} of your picks`);
-  }
-  if (parts.length === 0) {
-    if (matchedGenres.length >= 2)      parts.push(`Matches your ${matchedGenres.slice(0, 2).join(' & ')} taste`);
-    else if (matchedGenres.length === 1) parts.push(`Matches ${matchedGenres[0]} in your library`);
-  }
-  if (adjustedRating >= 7.5)      parts.push('Highly rated');
-  else if (adjustedRating >= 6.5) parts.push('Solid reviews');
-  return parts;
-}
-
-/**
- * Score a movie or series candidate against the taste profile,
- * incorporating boosts from seed items and active genre filters.
- *
- * activeGenreIds: Set of numeric TMDB genre IDs that are currently active.
- *   - Match: +6 bonus
- *   - Miss:  −15 penalty (hard filter intent)
- * seedGenreIds: numeric genre IDs extracted from the user's chosen seed items.
- *   - +4 per matched genre
- */
-function scoreMediaCandidateV2(candidate, type, profile, savedIds, seedGenreIds, activeGenreIds) {
-  const compoundId = type === 'movie'
-    ? `movie_${Number(candidate.tmdbId)}`
-    : `series_${Number(candidate.tmdbId)}`;
-
-  if (savedIds.has(compoundId)) return null;
-
-  const candidateGenreIds = extractGenreIds(
-    candidate.genreIds ?? candidate.genre_ids ?? candidate.genres ?? []
-  );
-  const candidateGenreSet = new Set(candidateGenreIds);
-
-  // Base genre score from profile weights
-  let rawGenreScore = 0;
-  const matchedProfileNames = [];
-  candidateGenreIds.forEach(gid => {
-    const w = profile.genreWeights.get(gid) ?? 0;
-    if (w > 0) {
-      rawGenreScore += w;
-      const name = GENRE_NAMES[gid];
-      if (name) matchedProfileNames.push(name);
-    }
-  });
-  const baseGenreScore = Math.min(rawGenreScore * 1.5, 10);
-
-  if (baseGenreScore === 0 && profile.topGenres.length >= 2) return null;
-
-  // Seed boost: +4 per genre present in both candidate and seed items
-  const matchedSeedGenreIds = seedGenreIds.filter(id => candidateGenreSet.has(id));
-  const seedBoost = matchedSeedGenreIds.length * 4;
-
-  // Active genre: match → +6, any miss → −15 (the user explicitly filtered)
-  let activeGenreBoost = 0;
-  let activeGenreMissed = false;
-  if (activeGenreIds.size > 0) {
-    let anyMatch = false;
-    activeGenreIds.forEach(id => { if (candidateGenreSet.has(id)) anyMatch = true; });
-    if (anyMatch) {
-      activeGenreBoost = 6;
-    } else {
-      activeGenreBoost = -15;
-      activeGenreMissed = true;
-    }
-  }
-
-  const adjustedRating  = bayesianRating(candidate.rating, candidate.voteCount);
-  const ratingScore     = (adjustedRating / 10) * 2.5;   // reduced from ×5
-  const popularityScore = normPopularity(candidate.popularity) * 0.15; // reduced from ×0.5
-
-  const totalScore = baseGenreScore + seedBoost + activeGenreBoost + ratingScore + popularityScore;
-
-  // Hard-reject items that failed the active-genre filter and still scored negatively
-  if (activeGenreMissed && totalScore < 0) return null;
-
-  const uniqueProfileNames = [...new Set(matchedProfileNames)].slice(0, 3);
-  const explanation = buildMediaExplanationV2(uniqueProfileNames, adjustedRating, matchedSeedGenreIds);
-
-  const _debug = {
-    baseGenreScore, seedBoost, activeGenreBoost, ratingScore, popularityScore,
-    totalScore, matchedSeedGenreIds, activeGenreMissed,
-  };
-
-  if (import.meta.env.DEV) {
-    console.debug('[scoreV2]', candidate.title ?? candidate.name, _debug);
-  }
-
-  return {
-    totalScore,
-    breakdown: { baseGenreScore, seedBoost, activeGenreBoost, ratingScore, popularityScore },
-    explanation,
-    basedOn: uniqueProfileNames,
-    _debug,
-  };
-}
-
 /**
  * Score game catalog candidates with seed tag boosts and active tag filtering.
  *
@@ -424,6 +321,207 @@ function scoreGameCandidatesV2(profile, savedIds, seedTagIds, activeTagIds, limi
   }).filter(Boolean);
 
   return scored.sort((a, b) => b.score - a.score).slice(0, limit);
+}
+
+// ─── V3 Scoring (exposure-aware, discovery-balanced) ─────────────────────────
+
+/**
+ * Classify a candidate into an exposure bucket based on its TMDB popularity
+ * and vote count — both fields are normalized onto every candidate by the backend.
+ *
+ *  mainstream   — widely seen; slight scoring penalty applied
+ *  known        — moderate visibility; neutral
+ *  underexposed — small audience; affinity-conditional discovery boost applied
+ */
+function classifyExposureBucket(candidate) {
+  const pop   = candidate.popularity ?? 0;
+  const votes = candidate.voteCount  ?? 0;
+  if (votes > 5000 || pop > 80)  return 'mainstream';
+  if (votes > 1500 || pop > 25)  return 'known';
+  return 'underexposed';
+}
+
+function buildMediaExplanationV3(matchedGenres, adjustedRating, matchedSeedGenreIds, exposureBucket) {
+  const parts = [];
+  // Lead with seed context when available
+  if (matchedSeedGenreIds.length > 0) {
+    const seedNames = matchedSeedGenreIds.slice(0, 2).map(id => GENRE_NAMES[id]).filter(Boolean);
+    if (seedNames.length >= 2)      parts.push(`Matches the ${seedNames.join(' & ')} of your picks`);
+    else if (seedNames.length === 1) parts.push(`Matches the ${seedNames[0]} of your picks`);
+  }
+  if (parts.length === 0) {
+    if (matchedGenres.length >= 2)      parts.push(`Matches your ${matchedGenres.slice(0, 2).join(' & ')} taste`);
+    else if (matchedGenres.length === 1) parts.push(`Matches ${matchedGenres[0]} in your library`);
+  }
+  // Quality signal
+  if (adjustedRating >= 7.5)      parts.push('Highly rated');
+  else if (adjustedRating >= 6.5) parts.push('Solid reviews');
+  // Discovery signal
+  if (exposureBucket === 'underexposed') parts.push('Hidden gem');
+  return parts;
+}
+
+/**
+ * Exposure-aware scorer for movies and series.
+ *
+ * Differences from V2:
+ *  - exposure bucket classified per candidate
+ *  - mainstream candidates receive a flat −1.5 penalty
+ *  - underexposed candidates receive a discovery boost that SCALES with affinity
+ *    (high-affinity underexposed → up to +3.0; weak-affinity underexposed → near 0)
+ *  - qualityScore uses ×3.0 multiplier (was ×2.5) — quality rewarded more
+ *  - popularityScore reduced to ×0.05 tie-breaker only
+ *
+ * Hard reject conditions (unchanged):
+ *  - already saved
+ *  - zero genre affinity when profile has ≥2 top genres
+ *  - activeGenreMissed AND totalScore < 0
+ */
+function scoreMediaCandidateV3(candidate, type, profile, savedIds, seedGenreIds, activeGenreIds) {
+  const compoundId = type === 'movie'
+    ? `movie_${Number(candidate.tmdbId)}`
+    : `series_${Number(candidate.tmdbId)}`;
+
+  if (savedIds.has(compoundId)) return null;
+
+  const candidateGenreIds = extractGenreIds(
+    candidate.genreIds ?? candidate.genre_ids ?? candidate.genres ?? []
+  );
+  const candidateGenreSet = new Set(candidateGenreIds);
+
+  // ── Base genre score from profile weights ───────────────────────────────────
+  let rawGenreScore = 0;
+  const matchedProfileNames = [];
+  candidateGenreIds.forEach(gid => {
+    const w = profile.genreWeights.get(gid) ?? 0;
+    if (w > 0) {
+      rawGenreScore += w;
+      const name = GENRE_NAMES[gid];
+      if (name) matchedProfileNames.push(name);
+    }
+  });
+  const baseGenreScore = Math.min(rawGenreScore * 1.5, 10);
+
+  if (baseGenreScore === 0 && profile.topGenres.length >= 2) return null;
+
+  // ── Seed boost ──────────────────────────────────────────────────────────────
+  const matchedSeedGenreIds = seedGenreIds.filter(id => candidateGenreSet.has(id));
+  const seedBoost = matchedSeedGenreIds.length * 4;
+
+  // ── Active genre filter ─────────────────────────────────────────────────────
+  let activeGenreBoost  = 0;
+  let activeGenreMissed = false;
+  if (activeGenreIds.size > 0) {
+    let anyMatch = false;
+    activeGenreIds.forEach(id => { if (candidateGenreSet.has(id)) anyMatch = true; });
+    if (anyMatch) {
+      activeGenreBoost = 6;
+    } else {
+      activeGenreBoost  = -15;
+      activeGenreMissed = true;
+    }
+  }
+
+  // ── Quality ─────────────────────────────────────────────────────────────────
+  const adjustedRating = bayesianRating(candidate.rating, candidate.voteCount);
+  const qualityScore   = (adjustedRating / 10) * 3.0;   // ×3.0, was ×2.5
+
+  // ── Exposure adjustment ─────────────────────────────────────────────────────
+  const exposureBucket = classifyExposureBucket(candidate);
+
+  // mainstreamPenalty: flat -1.5 on all mainstream candidates
+  const mainstreamPenalty = exposureBucket === 'mainstream' ? -1.5 : 0;
+
+  // discoveryBoost: affinity-gated boost for underexposed candidates only.
+  // Scales with baseGenreScore so weak-affinity obscure titles don't float up.
+  const discoveryBoost = exposureBucket === 'underexposed'
+    ? Math.min((baseGenreScore / 10) * 3.0, 3.0)
+    : 0;
+
+  const exposureAdjustment = mainstreamPenalty + discoveryBoost;
+
+  // ── Minimal popularity stabilizer ──────────────────────────────────────────
+  const popularityScore = normPopularity(candidate.popularity) * 0.05;  // was ×0.15
+
+  const totalScore = baseGenreScore + seedBoost + activeGenreBoost
+                   + qualityScore + exposureAdjustment + popularityScore;
+
+  if (activeGenreMissed && totalScore < 0) return null;
+
+  const uniqueProfileNames = [...new Set(matchedProfileNames)].slice(0, 3);
+  const explanation = buildMediaExplanationV3(
+    uniqueProfileNames, adjustedRating, matchedSeedGenreIds, exposureBucket
+  );
+
+  const _debug = {
+    // personalization
+    baseGenreScore, seedBoost, activeGenreBoost, matchedSeedGenreIds, activeGenreMissed,
+    // quality
+    qualityScore, adjustedRating,
+    voteCount:   candidate.voteCount  ?? 0,
+    popularity:  candidate.popularity ?? 0,
+    // exposure
+    exposureBucket, exposureAdjustment, mainstreamPenalty, discoveryBoost,
+    // stabilizer + total
+    popularityScore, totalScore,
+  };
+
+  if (import.meta.env.DEV) {
+    console.debug('[scoreV3]', candidate.title ?? candidate.name, _debug);
+  }
+
+  return {
+    totalScore,
+    breakdown: {
+      baseGenreScore, seedBoost, activeGenreBoost,
+      qualityScore, exposureAdjustment, popularityScore,
+    },
+    explanation,
+    basedOn: uniqueProfileNames,
+    _debug,
+  };
+}
+
+/**
+ * After scoring, enforce a soft mainstream cap so the final list is not entirely
+ * composed of blockbusters.
+ *
+ * Algorithm (deterministic, no randomness):
+ *  - Lock top 2 positions by pure score (highest confidence picks, always shown)
+ *  - Among positions 3–limit, allow at most MAINSTREAM_QUOTA mainstream items total
+ *    (counting position 1 if it is mainstream)
+ *  - Mainstream items that exceed the quota are deferred to an overflow list
+ *  - Remaining slots filled from overflow if non-mainstream candidates run out
+ *
+ * This ensures strong underexposed candidates that scored in V3 are not crowded
+ * out by a cluster of slightly-higher-scoring mainstream items.
+ */
+function buildExposureBalancedResults(scored, limit = 10) {
+  if (scored.length <= limit) return scored;
+
+  const MAINSTREAM_QUOTA = Math.ceil(limit / 2); // max 5 of 10
+
+  const accepted  = [];
+  const overflow  = [];
+  let mainstreamCount = 0;
+
+  for (const item of scored) {
+    if (accepted.length >= limit) break;
+    const isMs = item._debug?.exposureBucket === 'mainstream';
+    if (isMs && mainstreamCount >= MAINSTREAM_QUOTA) {
+      overflow.push(item);
+    } else {
+      accepted.push(item);
+      if (isMs) mainstreamCount++;
+    }
+  }
+
+  // Fill any gap (only reached if underexposed pool was thin) from overflow
+  if (accepted.length < limit && overflow.length > 0) {
+    accepted.push(...overflow.slice(0, limit - accepted.length));
+  }
+
+  return accepted.slice(0, limit);
 }
 
 // ─── Summary builders ─────────────────────────────────────────────────────────
@@ -737,39 +835,56 @@ export function useSourceRecs({ sourceMode, seedIds, activeGenres, library }) {
       try {
         const results = { movie: [], series: [], game: [] };
 
-        // ── Movies ───────────────────────────────────────────────────────────
+        // ── Movies — three-bucket candidate pool ─────────────────────────────
         if (order.includes('movie') && tmdbGenreParam.length > 0) {
           try {
-            // Two-page fetch: popularity-first for breadth, rating-first for quality
-            const [popData, ratingData] = await Promise.all([
+            // Bucket A: mainstream/quality — page 1 popularity sort
+            // Bucket B: quality-first     — page 1 rating sort, higher quality floor
+            // Bucket C: discovery         — page 3 rating sort, lower floor
+            //           (page 3 of vote_average.desc surfaces well-rated films
+            //            that lack the large vote counts needed to reach page 1,
+            //            yielding naturally lower-exposure candidates)
+            const [bucketA, bucketB, bucketC] = await Promise.all([
               mediaDiscoveryService.discover({
                 genres: tmdbGenreParam, sort_by: 'popularity.desc',
-                rating_gte: 5.5, page: 1,
+                rating_gte: 6.0, page: 1,
               }).catch(() => ({ results: [] })),
               mediaDiscoveryService.discover({
                 genres: tmdbGenreParam, sort_by: 'vote_average.desc',
-                rating_gte: 6.0, page: 1,
+                rating_gte: 7.0, page: 1,
+              }).catch(() => ({ results: [] })),
+              mediaDiscoveryService.discover({
+                genres: tmdbGenreParam, sort_by: 'vote_average.desc',
+                rating_gte: 6.5, page: 3,
               }).catch(() => ({ results: [] })),
             ]);
 
             if (!cancelled) {
-              // Merge and deduplicate by tmdbId
               const seen = new Set();
-              const pool = [...(popData?.results ?? []), ...(ratingData?.results ?? [])].filter(m => {
+              const pool = [
+                ...(bucketA?.results ?? []),
+                ...(bucketB?.results ?? []),
+                ...(bucketC?.results ?? []),
+              ].filter(m => {
                 const key = m.tmdbId ?? m.id;
                 if (seen.has(key)) return false;
                 seen.add(key);
                 return true;
+              }).filter(m => {
+                // Client-side quality guard: Bayesian-smoothed rating must be ≥ 6.5
+                // Protects against page-3 noise (50-vote perfect-score anomalies).
+                return bayesianRating(m.rating, m.voteCount) >= 6.5;
               });
 
-              results.movie = pool
+              const scored = pool
                 .map(m => {
-                  const s = scoreMediaCandidateV2(m, 'movie', profile, savedIds, seedGenreIds, activeNumericIds);
+                  const s = scoreMediaCandidateV3(m, 'movie', profile, savedIds, seedGenreIds, activeNumericIds);
                   return s ? { item: m, type: 'movie', ...s } : null;
                 })
                 .filter(Boolean)
-                .sort((a, b) => b.totalScore - a.totalScore)
-                .slice(0, 10);
+                .sort((a, b) => b.totalScore - a.totalScore);
+
+              results.movie = buildExposureBalancedResults(scored, 10);
             }
           } catch { /* non-fatal */ }
         }
@@ -778,38 +893,46 @@ export function useSourceRecs({ sourceMode, seedIds, activeGenres, library }) {
         await new Promise(r => setTimeout(r, 300)); // TMDB rate-limit stagger
         if (cancelled) return;
 
-        // ── Series ───────────────────────────────────────────────────────────
+        // ── Series — three-bucket candidate pool ─────────────────────────────
         if (order.includes('series') && tmdbGenreParam.length > 0) {
           try {
-            const [popData, ratingData] = await Promise.all([
+            const [bucketA, bucketB, bucketC] = await Promise.all([
               tvService.discover({
-                genres: tmdbGenreParam, sort_by: 'popularity.desc', rating_gte: 5.5,
+                genres: tmdbGenreParam, sort_by: 'popularity.desc',
+                rating_gte: 6.0,
               }).catch(() => ({ results: [] })),
               tvService.discover({
-                genres: tmdbGenreParam, sort_by: 'vote_average.desc', rating_gte: 6.0,
+                genres: tmdbGenreParam, sort_by: 'vote_average.desc',
+                rating_gte: 7.0,
+              }).catch(() => ({ results: [] })),
+              tvService.discover({
+                genres: tmdbGenreParam, sort_by: 'vote_average.desc',
+                rating_gte: 6.5, page: 3,
               }).catch(() => ({ results: [] })),
             ]);
 
             if (!cancelled) {
               const seen = new Set();
               const pool = [
-                ...(popData?.results ?? popData?.items ?? []),
-                ...(ratingData?.results ?? ratingData?.items ?? []),
+                ...(bucketA?.results ?? bucketA?.items ?? []),
+                ...(bucketB?.results ?? bucketB?.items ?? []),
+                ...(bucketC?.results ?? bucketC?.items ?? []),
               ].filter(s => {
                 const key = s.tmdbId ?? s.id;
                 if (seen.has(key)) return false;
                 seen.add(key);
                 return true;
-              });
+              }).filter(s => bayesianRating(s.rating, s.voteCount) >= 6.5);
 
-              results.series = pool
+              const scored = pool
                 .map(s => {
-                  const sc = scoreMediaCandidateV2(s, 'series', profile, savedIds, seedGenreIds, activeNumericIds);
+                  const sc = scoreMediaCandidateV3(s, 'series', profile, savedIds, seedGenreIds, activeNumericIds);
                   return sc ? { item: s, type: 'series', ...sc } : null;
                 })
                 .filter(Boolean)
-                .sort((a, b) => b.totalScore - a.totalScore)
-                .slice(0, 10);
+                .sort((a, b) => b.totalScore - a.totalScore);
+
+              results.series = buildExposureBalancedResults(scored, 10);
             }
           } catch { /* non-fatal */ }
         }

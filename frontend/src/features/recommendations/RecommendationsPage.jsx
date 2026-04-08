@@ -4,6 +4,7 @@ import { useSourceRecs, deriveSourceGenres } from './usePersonalizedRecs';
 import { useUserLibraryStore } from '@/features/library/libraryStore';
 import DragRow from '@/components/ui/DragRow';
 import UnifiedCard from '@/components/ui/UnifiedCard';
+import ContentBand from '@/components/ui/ContentBand';
 
 // ─── Config tables ─────────────────────────────────────────────────────────────
 
@@ -65,49 +66,21 @@ const SOURCE_CONFIG = {
   },
 };
 
-const TYPE_CONFIG = {
-  game:   { badge: 'GAME',   badgeBg: 'bg-accent text-white'     },
-  movie:  { badge: 'FILM',   badgeBg: 'bg-amber-500 text-white'  },
-  series: { badge: 'SERIES', badgeBg: 'bg-violet-500 text-white' },
-};
-
 // ─── 1. HeroZone ──────────────────────────────────────────────────────────────
 
 function HeroZone({ sourceMode }) {
-  const modes = Object.entries(SOURCE_CONFIG);
+  const activeCfg = SOURCE_CONFIG[sourceMode];
   return (
-    <div className="px-5 sm:px-8 lg:px-12 pt-10 pb-10 border-b border-line">
-      <p className="section-label mb-4">Discover across worlds</p>
-      <h1 className="text-4xl sm:text-5xl font-semibold text-ink leading-[1.1] mb-5">
-        Choose the source<br />of your taste
+    <ContentBand zone="deep" size="hero" className="border-b border-line/50">
+      <p className={`eyebrow ${activeCfg.colorText} mb-7`}>For You</p>
+      <h1 className="display text-ink mb-7 max-w-4xl">
+        Choose the source<br />of your taste.
       </h1>
-      <p className="text-sm text-ink-light max-w-md leading-relaxed mb-8">
+      <p className="body-lead text-ink-mid max-w-2xl">
         Pick a source library below. Lumium maps your saved titles to recommendations
         across videogames, movies, and series — cross-media first.
       </p>
-
-      {/* World chain — active source highlighted */}
-      <div className="flex items-center gap-2">
-        {modes.map(([mode, cfg], i) => (
-          <div key={mode} className="flex items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                         text-[10px] sm:text-xs font-bold border transition-all duration-200
-                         ${sourceMode === mode
-                           ? `${cfg.colorBg} text-white border-transparent`
-                           : 'border-line text-ink-light'
-                         }`}
-            >
-              <span>{cfg.emoji}</span>
-              <span className="hidden sm:inline">{cfg.labelShort}</span>
-            </span>
-            {i < modes.length - 1 && (
-              <span className="text-ink-light text-xs select-none">↔</span>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
+    </ContentBand>
   );
 }
 
@@ -115,9 +88,10 @@ function HeroZone({ sourceMode }) {
 
 function SourceCards({ sourceMode, onChange, library }) {
   return (
-    <div className="px-5 sm:px-8 lg:px-12 py-8">
+    <ContentBand zone="surface" size="default" topBorder>
+      <p className="eyebrow text-ink-light mb-10">Source</p>
       <div
-        className="grid grid-cols-3 gap-3 max-w-3xl"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
         role="tablist"
         aria-label="Choose source mode"
       >
@@ -131,54 +105,39 @@ function SourceCards({ sourceMode, onChange, library }) {
               aria-selected={active}
               onClick={() => onChange(mode)}
               className={`
-                relative flex flex-col items-center text-center gap-3
-                rounded-2xl border-2 p-4 sm:p-6
-                transition-all duration-200 focus:outline-none
-                focus-visible:ring-2 focus-visible:ring-accent
+                relative text-left p-8 rounded-2xl border transition-all duration-250
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-accent
                 ${active
-                  ? `${cfg.colorBorder} ${cfg.colorTint} shadow-lg`
-                  : 'border-line bg-transparent hover:bg-surface-high/50 hover:border-ink-light/40'
+                  ? `${cfg.colorBorder} border-2 ${cfg.colorTint}`
+                  : 'border-line/60 bg-canvas hover:border-line hover:bg-surface/50'
                 }
               `}
             >
-              {/* Colored top bar when active */}
               {active && (
-                <div className={`absolute top-0 inset-x-0 h-1 rounded-t-2xl ${cfg.colorBg}`} />
+                <div className={`absolute top-0 inset-x-0 h-px rounded-t-2xl ${cfg.colorBg} opacity-60`} />
               )}
-
-              {/* Emoji */}
-              <span
-                className={`text-3xl sm:text-4xl leading-none transition-all duration-200
-                            ${active ? '' : 'opacity-40'}`}
-              >
-                {cfg.emoji}
-              </span>
-
-              {/* Label + count */}
-              <div className="space-y-0.5">
-                <p
-                  className={`text-[9px] sm:text-[10px] font-black tracking-widest uppercase
-                              transition-colors ${active ? cfg.colorText : 'text-ink-mid'}`}
-                >
-                  <span className="sm:hidden">{cfg.labelShort}</span>
-                  <span className="hidden sm:inline">{cfg.label}</span>
-                </p>
-                <p className={`text-[10px] sm:text-xs font-semibold transition-colors
-                               ${active ? cfg.colorMid : 'text-ink-light'}`}>
-                  {count > 0 ? `${count} saved` : 'Empty'}
-                </p>
+              <div className="flex items-start justify-between mb-6">
+                <span className={`text-4xl leading-none ${active ? '' : 'opacity-50'}`}>
+                  {cfg.emoji}
+                </span>
+                {active && (
+                  <span className={`w-2.5 h-2.5 rounded-full ${cfg.colorBg} mt-1`} />
+                )}
               </div>
-
-              {/* Description — desktop only */}
-              <p className={`hidden sm:block text-[11px] leading-relaxed transition-colors
-                             ${active ? 'text-ink-mid' : 'text-ink-light/60'}`}>
+              <p className={`eyebrow mb-3 transition-colors ${active ? cfg.colorText : 'text-ink-light'}`}>
+                {cfg.labelShort}
+              </p>
+              <p className={`headline-md mb-3 transition-colors ${active ? 'text-ink' : 'text-ink-mid'}`}>
+                {count > 0 ? `${count} saved` : 'Empty'}
+              </p>
+              <p className={`text-[13px] leading-relaxed transition-colors ${active ? 'text-ink-mid' : 'text-ink-light/60'}`}>
                 {cfg.description}
               </p>
             </button>
           );
         })}
       </div>
-    </div>
+    </ContentBand>
   );
 }
 
@@ -280,9 +239,8 @@ function PrecisionStudio({
   })();
 
   return (
-    /* Left border in source color — the visual anchor of this zone */
-    <div className={`border-l-4 ${cfg.colorBorder} ${cfg.colorTint}`}>
-      <div className="px-5 sm:px-8 lg:px-12 py-7 space-y-6">
+    <ContentBand zone="canvas" size="compact" topBorder className={`border-l-4 ${cfg.colorBorder}`}>
+      <div className="space-y-6">
 
         {/* Studio header — always visible */}
         <div className="flex items-start justify-between gap-4">
@@ -426,83 +384,58 @@ function PrecisionStudio({
           )}
         </div>
       </div>
-    </div>
+    </ContentBand>
   );
 }
 
 // ─── 4. RecommendationSection ─────────────────────────────────────────────────
 
-function RecommendationSection({ section, sourceMode, index, library, onAddToLibrary }) {
+function RecommendationSection({ section, sourceMode, library, onAddToLibrary }) {
   const { type, items, reason } = section;
-  const typeCfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.movie;
   const title   = SECTION_TITLES[sourceMode]?.[type] ?? type;
-  const num     = String(index + 1).padStart(2, '0');
+  const color   = type === 'game' ? 'accent' : type === 'movie' ? 'amber' : 'violet';
+  const overline =
+    type === 'game'   ? 'Games'  :
+    type === 'movie'  ? 'Films'  :
+    'Series';
 
   if (!items || items.length === 0) return null;
 
+  const zoneAlt = type === 'game' ? 'surface' : type === 'movie' ? 'canvas' : 'surface';
+
   return (
-    <section className="border-t border-line pt-10" aria-label={title}>
-
-      {/* Section header */}
-      <div className="px-5 sm:px-8 lg:px-12 mb-5">
-        <div className="flex items-start gap-4 sm:gap-5">
-
-          {/* Muted number — communicates ordered cross-media structure */}
-          <span
-            className="text-4xl sm:text-5xl font-black text-ink/10 leading-none
-                       flex-shrink-0 select-none tabular-nums mt-0.5"
-            aria-hidden="true"
-          >
-            {num}
-          </span>
-
-          <div className="min-w-0 flex-1">
-            {/* Media type badge */}
-            <span
-              className={`inline-block text-[9px] font-black tracking-[0.2em] uppercase
-                         px-2 py-0.5 rounded-md mb-2 ${typeCfg.badgeBg}`}
-            >
-              {typeCfg.badge}
-            </span>
-
-            {/* Editorial title */}
-            <h2 className="text-xl sm:text-2xl font-bold text-ink leading-tight mb-1.5">
-              {title}
-            </h2>
-
-            {/* Reason — prominent, not tucked away */}
-            {reason && (
-              <p className="text-sm text-ink-mid leading-relaxed">{reason}</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Cards */}
-      <div className="px-5 sm:px-8 lg:px-12">
-        <DragRow gap="gap-3">
-          {items.map((scored, idx) => {
-            const item       = scored.item ?? scored;
-            const compoundId = type === 'movie'
-              ? `movie_${item.tmdbId}`
-              : type === 'series'
-              ? `series_${item.tmdbId ?? item.id}`
-              : `game_${item.id ?? item.rawId}`;
-            const inLib = library.some(i => i.id === compoundId);
-            return (
-              <div key={item.id ?? item.tmdbId ?? idx} className="flex-shrink-0 w-56 sm:w-60">
-                <UnifiedCard
-                  item={item}
-                  type={type}
-                  isInLibrary={inLib}
-                  onAddToLibrary={() => onAddToLibrary(item, type)}
-                />
-              </div>
-            );
-          })}
-        </DragRow>
-      </div>
-    </section>
+    <ContentBand zone={zoneAlt} size="lg" topBorder aria-label={title}>
+      <p className={`eyebrow mb-5 ${
+        color === 'accent' ? 'text-accent' :
+        color === 'amber'  ? 'text-amber-400' :
+        'text-violet-400'
+      }`}>{overline}</p>
+      <h2 className="headline-lg text-ink mb-4">{title}</h2>
+      {reason && (
+        <p className="body-lead text-ink-mid max-w-2xl mb-10">{reason}</p>
+      )}
+      <DragRow gap="gap-3">
+        {items.map((scored, idx) => {
+          const item       = scored.item ?? scored;
+          const compoundId = type === 'movie'
+            ? `movie_${item.tmdbId}`
+            : type === 'series'
+            ? `series_${item.tmdbId ?? item.id}`
+            : `game_${item.id ?? item.rawId}`;
+          const inLib = library.some(i => i.id === compoundId);
+          return (
+            <div key={item.id ?? item.tmdbId ?? idx} className="flex-shrink-0 w-56 sm:w-64">
+              <UnifiedCard
+                item={item}
+                type={type}
+                isInLibrary={inLib}
+                onAddToLibrary={() => onAddToLibrary(item, type)}
+              />
+            </div>
+          );
+        })}
+      </DragRow>
+    </ContentBand>
   );
 }
 
@@ -512,23 +445,24 @@ function EmptySourceState({ sourceMode }) {
   const cfg  = SOURCE_CONFIG[sourceMode];
   const noun = sourceMode === 'game' ? 'games' : sourceMode === 'movie' ? 'movies' : 'series';
   return (
-    <div className="px-5 sm:px-8 lg:px-12 py-16">
-      <div className="max-w-sm">
-        <span className="text-5xl mb-5 block">{cfg.emoji}</span>
-        <p className="section-label mb-2">No {noun} saved yet</p>
-        <p className="text-sm text-ink-light leading-relaxed mb-6">
-          Save at least two {noun} to your library. Lumium will build
-          cross-media recommendations from them.
-        </p>
-        <Link
-          to="/discover"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold
-                     text-ink-mid hover:text-ink transition-colors"
-        >
-          Find {noun} to save →
-        </Link>
-      </div>
-    </div>
+    <ContentBand zone="canvas" size="lg" topBorder>
+      <span className="text-6xl mb-8 block">{cfg.emoji}</span>
+      <p className="eyebrow text-ink-light mb-6">No {noun} saved yet</p>
+      <h2 className="headline-lg text-ink mb-6 max-w-xl">
+        Save some {noun} to unlock recommendations
+      </h2>
+      <p className="body-lead text-ink-mid max-w-lg mb-10">
+        Save at least two {noun} to your library. Lumium will build
+        cross-media recommendations from them.
+      </p>
+      <Link
+        to="/discover"
+        className="inline-flex items-center gap-2 text-[13px] font-semibold
+                   bg-ink text-canvas px-6 py-3 rounded-full hover:bg-ink/80 transition-colors"
+      >
+        Find {noun} to save →
+      </Link>
+    </ContentBand>
   );
 }
 
@@ -537,24 +471,24 @@ function LowDataState({ sourceMode, count }) {
   const need = 2 - count;
   const noun = sourceMode === 'game' ? 'game' : sourceMode === 'movie' ? 'movie' : 'series';
   return (
-    <div className="px-5 sm:px-8 lg:px-12 py-16">
-      <div className="max-w-sm">
-        <span className="text-5xl mb-5 block">{cfg.emoji}</span>
-        <p className="section-label mb-2">Almost ready</p>
-        <p className="text-sm text-ink-light leading-relaxed mb-6">
-          You have {count} {count === 1 ? noun : noun + 's'} saved.
-          Add {need} more {need === 1 ? noun : noun + 's'} and Lumium will start
-          building cross-media recommendations.
-        </p>
-        <Link
-          to="/discover"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold
-                     text-ink-mid hover:text-ink transition-colors"
-        >
-          Find more {noun + 's'} →
-        </Link>
-      </div>
-    </div>
+    <ContentBand zone="canvas" size="lg" topBorder>
+      <span className="text-6xl mb-8 block">{cfg.emoji}</span>
+      <p className="eyebrow text-ink-light mb-6">Almost ready</p>
+      <h2 className="headline-lg text-ink mb-6 max-w-xl">
+        Save {need} more {need === 1 ? noun : noun + 's'} to unlock
+      </h2>
+      <p className="body-lead text-ink-mid max-w-lg mb-10">
+        You have {count} {count === 1 ? noun : noun + 's'} saved.
+        Add {need} more and Lumium will start building cross-media recommendations.
+      </p>
+      <Link
+        to="/discover"
+        className="inline-flex items-center gap-2 text-[13px] font-semibold
+                   bg-ink text-canvas px-6 py-3 rounded-full hover:bg-ink/80 transition-colors"
+      >
+        Find more {noun + 's'} →
+      </Link>
+    </ContentBand>
   );
 }
 
@@ -562,27 +496,20 @@ function SectionSkeleton() {
   return (
     <div>
       {[0, 1, 2].map(i => (
-        <div key={i} className="border-t border-line pt-10 pb-4">
-          <div className="px-5 sm:px-8 lg:px-12 mb-5">
-            <div className="flex items-start gap-5">
-              <div className="w-12 h-11 bg-line rounded-lg animate-pulse flex-shrink-0" />
-              <div className="space-y-2 flex-1">
-                <div className="h-3 w-10 bg-line rounded animate-pulse" />
-                <div className="h-6 w-64 bg-line rounded animate-pulse" />
-                <div className="h-3 w-80 bg-line rounded animate-pulse" />
-              </div>
-            </div>
-          </div>
-          <div className="px-5 sm:px-8 lg:px-12 flex gap-3">
+        <ContentBand key={i} zone={i % 2 === 0 ? 'canvas' : 'surface'} size="lg" topBorder>
+          <div className="skeleton h-2.5 w-16 rounded mb-5" />
+          <div className="skeleton h-10 w-80 rounded mb-4" />
+          <div className="skeleton h-4 w-96 rounded mb-12" />
+          <div className="flex gap-3">
             {[0, 1, 2, 3, 4].map(j => (
               <div
                 key={j}
-                className="flex-shrink-0 w-56 sm:w-60 rounded-2xl bg-line animate-pulse"
+                className="skeleton flex-shrink-0 w-56 sm:w-64 rounded-2xl"
                 style={{ aspectRatio: '16/9' }}
               />
             ))}
           </div>
-        </div>
+        </ContentBand>
       ))}
     </div>
   );
@@ -674,15 +601,15 @@ export default function RecommendationsPage() {
   }, [addItem]);
 
   return (
-    <div className="max-w-screen-xl mx-auto">
+    <div className="min-h-screen bg-zone-deep">
 
-      {/* ── 1. Hero ──────────────────────────────────────────────────────────── */}
+      {/* ── 1. Hero ─────────────────────────────────────────────────────────── */}
       <HeroZone sourceMode={sourceMode} />
 
-      {/* ── 2. Source cards ──────────────────────────────────────────────────── */}
+      {/* ── 2. Source cards ─────────────────────────────────────────────────── */}
       <SourceCards sourceMode={sourceMode} onChange={handleSourceChange} library={library} />
 
-      {/* ── 3. Precision Studio (when source has any items) ──────────────────── */}
+      {/* ── 3. Precision Studio ─────────────────────────────────────────────── */}
       {!isEmpty && sourceItems.length > 0 && (
         <PrecisionStudio
           sourceMode={sourceMode}
@@ -697,41 +624,38 @@ export default function RecommendationsPage() {
         />
       )}
 
-      {/* ── 4. Content zone ──────────────────────────────────────────────────── */}
-      <div>
-        {isEmpty ? (
-          <EmptySourceState sourceMode={sourceMode} />
-        ) : !hasEnoughData ? (
-          <LowDataState sourceMode={sourceMode} count={sourceItems.length} />
-        ) : isLoading ? (
-          <SectionSkeleton />
-        ) : sections.length === 0 ? (
-          <div className="px-5 sm:px-8 lg:px-12 py-12">
-            <p className="text-sm text-ink-light">
-              No recommendations found with the current filters.{' '}
-              <button
-                onClick={clearAll}
-                className="text-ink-mid hover:text-ink underline transition-colors"
-              >
-                Reset precision
-              </button>
-            </p>
-          </div>
-        ) : (
-          <div className="pb-16">
-            {sections.map((section, i) => (
-              <RecommendationSection
-                key={section.type}
-                section={section}
-                sourceMode={sourceMode}
-                index={i}
-                library={library}
-                onAddToLibrary={handleAddToLibrary}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      {/* ── 4. Content zone ─────────────────────────────────────────────────── */}
+      {isEmpty ? (
+        <EmptySourceState sourceMode={sourceMode} />
+      ) : !hasEnoughData ? (
+        <LowDataState sourceMode={sourceMode} count={sourceItems.length} />
+      ) : isLoading ? (
+        <SectionSkeleton />
+      ) : sections.length === 0 ? (
+        <ContentBand zone="canvas" size="lg" topBorder>
+          <p className="body-lead text-ink-mid">
+            No recommendations found with the current filters.{' '}
+            <button
+              onClick={clearAll}
+              className="text-ink hover:text-accent underline transition-colors"
+            >
+              Reset precision
+            </button>
+          </p>
+        </ContentBand>
+      ) : (
+        <div>
+          {sections.map((section) => (
+            <RecommendationSection
+              key={section.type}
+              section={section}
+              sourceMode={sourceMode}
+              library={library}
+              onAddToLibrary={handleAddToLibrary}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

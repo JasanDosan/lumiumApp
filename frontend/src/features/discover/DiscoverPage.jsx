@@ -22,6 +22,7 @@ import { useUserLibraryStore } from '@/features/library/libraryStore';
 import ExpandableRow           from '@/components/ui/ExpandableRow';
 import UnifiedCard             from '@/components/ui/UnifiedCard';
 import DragRow                 from '@/components/ui/DragRow';
+import ContentBand             from '@/components/ui/ContentBand';
 import { toast }               from '@/stores/toastStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -199,34 +200,6 @@ function useDiscoverTrending(tab, genreId, gameSort) {
   }, [genreId, gameSort, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { games, gamesLoading, movies, moviesLoading, series, seriesLoading };
-}
-
-// ─── Section header ───────────────────────────────────────────────────────────
-
-function SectionHead({ overline, title, color = 'default', count }) {
-  const colorMap = {
-    accent:  { bar: 'bg-accent',     over: 'text-accent'     },
-    amber:   { bar: 'bg-amber-500',  over: 'text-amber-400'  },
-    violet:  { bar: 'bg-violet-500', over: 'text-violet-400' },
-    default: { bar: 'bg-line',       over: 'text-ink-light'  },
-  };
-  const c = colorMap[color] ?? colorMap.default;
-  return (
-    <div className="flex items-end gap-3 mb-5">
-      <div>
-        <div className="flex items-center gap-2.5 mb-2">
-          <div className={`w-0.5 h-5 ${c.bar} rounded-full shrink-0`} />
-          <p className={`text-[10px] font-black tracking-[0.2em] uppercase ${c.over}`}>{overline}</p>
-        </div>
-        <h2 className="title-lg">{title}</h2>
-      </div>
-      {count != null && (
-        <span className="mb-0.5 text-xs text-ink-light">
-          {count} result{count !== 1 ? 's' : ''}
-        </span>
-      )}
-    </div>
-  );
 }
 
 // ─── Skeletons ────────────────────────────────────────────────────────────────
@@ -476,10 +449,28 @@ export default function DiscoverPage() {
     <div className="min-h-screen bg-canvas">
 
       {/* ═══════════════════════════════════════════════════════════════════
+          PAGE HERO
+      ═══════════════════════════════════════════════════════════════════ */}
+      <div
+        className="bg-canvas flex flex-col justify-center px-6 sm:px-12 lg:px-20 pb-20"
+        style={{ minHeight: '68vh' }}
+      >
+        <div className="max-w-[1280px] mx-auto w-full pt-16">
+          <p className="eyebrow text-accent mb-7">Discover</p>
+          <h1 className="display text-ink mb-7 max-w-3xl">
+            Find your next<br />obsession.
+          </h1>
+          <p className="body-lead text-ink-mid max-w-2xl">
+            Search across games, movies, and series &mdash; or browse what&apos;s trending right now.
+          </p>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
           STICKY HEADER — search bar + tab bar
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="sticky top-14 z-30 bg-canvas/95 backdrop-blur-md border-b border-line">
-        <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 pt-4">
+      <div className="sticky top-14 z-30 bg-canvas/95 backdrop-blur-xl border-b border-line/60">
+        <div className="max-w-[1280px] mx-auto px-6 sm:px-12 lg:px-20 pt-4">
 
           {/* Search input */}
           <div className="relative mb-4">
@@ -495,9 +486,9 @@ export default function DiscoverPage() {
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="Search games, movies, and series…"
-              className="w-full bg-surface border border-line rounded-xl pl-10 pr-10 py-3
-                         text-sm text-ink placeholder:text-ink-light
-                         focus:outline-none focus:border-accent/50 focus:ring-4 focus:ring-accent/10
+              className="w-full bg-surface border border-line/70 rounded-xl pl-10 pr-10 py-3
+                         text-[14px] text-ink placeholder:text-ink-light
+                         focus:outline-none focus:border-accent/40 focus:ring-4 focus:ring-accent/8
                          transition-all duration-200"
             />
             {searchTerm && (
@@ -548,107 +539,106 @@ export default function DiscoverPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           MAIN CONTENT
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 pb-20">
+      <div className="pb-0">
 
-        {/* ── SEARCH MODE ──────────────────────────────────────────────── */}
+        {/* ── SEARCH MODE ─────────────────────────────────────────────── */}
         {isSearchActive && (
-          <div key={`search-${activeTab}`} className="pt-8 animate-fade-in">
+          <div key={`search-${activeTab}`} className="animate-fade-in">
 
-            {searchLoading && <GridSkeleton count={8} />}
+            {searchLoading && (
+              <ContentBand zone="canvas" size="lg">
+                <GridSkeleton count={8} />
+              </ContentBand>
+            )}
 
             {!searchLoading && searchError && (
-              <SearchError message={searchError} onRetry={handleRetry} />
+              <ContentBand zone="canvas" size="lg">
+                <SearchError message={searchError} onRetry={handleRetry} />
+              </ContentBand>
             )}
 
             {!searchLoading && !searchError && !hasAnyResult && (
-              <NoResults query={debouncedQuery} />
+              <ContentBand zone="canvas" size="lg">
+                <NoResults query={debouncedQuery} />
+              </ContentBand>
             )}
 
             {!searchLoading && !searchError && hasAnyResult && (
-              <div className="space-y-12">
-
+              <div>
                 {showGames && searchGames.length > 0 && (
-                  <section>
-                    <SectionHead
-                      overline="Games"
-                      title="Game results"
-                      color="accent"
-                      count={searchGames.length}
-                    />
+                  <ContentBand zone="surface" size="lg" topBorder>
+                    <p className="eyebrow text-accent mb-5">Games</p>
+                    <h2 className="headline-lg text-ink mb-10">
+                      Game results
+                      <span className="ml-4 text-[1rem] font-normal text-ink-mid">{searchGames.length}</span>
+                    </h2>
                     <ResultGrid items={searchGames} type="game" />
-                  </section>
+                  </ContentBand>
                 )}
-
                 {showMovies && searchMovies.length > 0 && (
-                  <section>
-                    <SectionHead
-                      overline="Films"
-                      title="Movie results"
-                      color="amber"
-                      count={searchMovies.length}
-                    />
+                  <ContentBand zone="canvas" size="lg" topBorder>
+                    <p className="eyebrow text-amber-400 mb-5">Films</p>
+                    <h2 className="headline-lg text-ink mb-10">
+                      Movie results
+                      <span className="ml-4 text-[1rem] font-normal text-ink-mid">{searchMovies.length}</span>
+                    </h2>
                     <ResultGrid items={searchMovies} type="movie" />
-                  </section>
+                  </ContentBand>
                 )}
-
                 {showSeries && searchSeries.length > 0 && (
-                  <section>
-                    <SectionHead
-                      overline="Series"
-                      title="TV Series results"
-                      color="violet"
-                      count={searchSeries.length}
-                    />
+                  <ContentBand zone="surface" size="lg" topBorder>
+                    <p className="eyebrow text-violet-400 mb-5">Series</p>
+                    <h2 className="headline-lg text-ink mb-10">
+                      TV Series results
+                      <span className="ml-4 text-[1rem] font-normal text-ink-mid">{searchSeries.length}</span>
+                    </h2>
                     <ResultGrid items={searchSeries} type="series" />
-                  </section>
+                  </ContentBand>
                 )}
-
               </div>
             )}
           </div>
         )}
 
-        {/* ── BROWSE MODE ──────────────────────────────────────────────── */}
+        {/* ── BROWSE MODE ─────────────────────────────────────────────── */}
         {!isSearchActive && (
-          <div key={`browse-${activeTab}`} className="pt-8 space-y-14 animate-fade-in">
+          <div key={`browse-${activeTab}`} className="animate-fade-in">
 
-            {/* Quick filters */}
-            {showSortChips && (
-              <div>
-                <p className="text-[10px] font-black tracking-[0.2em] uppercase text-ink-light mb-3">
-                  Sort
-                </p>
-                <FilterChips
-                  items={GAME_SORTS}
-                  activeId={gameSort}
-                  onSelect={id => setGameSort(id ?? 'trending')}
-                  color="accent"
-                />
-              </div>
+            {/* Filter chips zone */}
+            {(showSortChips || showGenreChips) && (
+              <ContentBand zone="surface" size="compact" topBorder>
+                {showSortChips && (
+                  <div className="mb-6">
+                    <p className="eyebrow text-ink-light mb-4">Sort</p>
+                    <FilterChips
+                      items={GAME_SORTS}
+                      activeId={gameSort}
+                      onSelect={id => setGameSort(id ?? 'trending')}
+                      color="accent"
+                    />
+                  </div>
+                )}
+                {showGenreChips && (
+                  <div>
+                    <p className="eyebrow text-ink-light mb-4">Genre</p>
+                    <FilterChips
+                      items={TMDB_GENRES}
+                      activeId={genreFilter}
+                      onSelect={setGenreFilter}
+                      color={activeTab === 'series' ? 'violet' : 'amber'}
+                    />
+                  </div>
+                )}
+              </ContentBand>
             )}
 
-            {showGenreChips && (
-              <div>
-                <p className="text-[10px] font-black tracking-[0.2em] uppercase text-ink-light mb-3">
-                  Genre
-                </p>
-                <FilterChips
-                  items={TMDB_GENRES}
-                  activeId={genreFilter}
-                  onSelect={setGenreFilter}
-                  color={activeTab === 'series' ? 'violet' : 'amber'}
-                />
-              </div>
-            )}
-
-            {/* Trending Games */}
+            {/* Games section */}
             {showGames && (
-              <section>
-                <SectionHead
-                  overline="Games"
-                  title={gameSort === 'top-rated' ? 'Top Rated Games' : 'Trending Games'}
-                  color="accent"
-                />
+              <ContentBand zone="canvas" size="lg" topBorder>
+                <p className="eyebrow text-accent mb-5">Games</p>
+                <h2 className="headline-lg text-ink mb-10">
+                  {gameSort === 'top-rated' ? 'Top Rated Games' : 'Trending Games'}
+                </h2>
                 {gamesLoading ? <RowSkeleton /> : (
                   <ExpandableRow
                     items={trendGames.map(g => ({ item: g, type: 'game' }))}
@@ -658,21 +648,18 @@ export default function DiscoverPage() {
                     libraryCheck={gameCheckFn}
                   />
                 )}
-              </section>
+              </ContentBand>
             )}
 
-            {/* Trending / Filtered Movies */}
+            {/* Movies section */}
             {showMovies && (
-              <section>
-                <SectionHead
-                  overline="Films"
-                  title={
-                    genreFilter && activeTab !== 'series'
-                      ? `${activeGenreLabel} Movies`
-                      : 'Popular Movies'
-                  }
-                  color="amber"
-                />
+              <ContentBand zone="surface" size="lg" topBorder>
+                <p className="eyebrow text-amber-400 mb-5">Films</p>
+                <h2 className="headline-lg text-ink mb-10">
+                  {genreFilter && activeTab !== 'series'
+                    ? `${activeGenreLabel} Movies`
+                    : 'Popular Movies'}
+                </h2>
                 {moviesLoading ? <RowSkeleton /> : (
                   <ExpandableRow
                     items={trendMovies.map(m => ({ item: m, type: 'movie' }))}
@@ -682,21 +669,16 @@ export default function DiscoverPage() {
                     libraryCheck={movieCheckFn}
                   />
                 )}
-              </section>
+              </ContentBand>
             )}
 
-            {/* Trending / Filtered Series */}
+            {/* Series section */}
             {showSeries && (
-              <section>
-                <SectionHead
-                  overline="Series"
-                  title={
-                    genreFilter
-                      ? `${activeGenreLabel} Series`
-                      : 'Trending Series'
-                  }
-                  color="violet"
-                />
+              <ContentBand zone="canvas" size="lg" topBorder>
+                <p className="eyebrow text-violet-400 mb-5">Series</p>
+                <h2 className="headline-lg text-ink mb-10">
+                  {genreFilter ? `${activeGenreLabel} Series` : 'Trending Series'}
+                </h2>
                 {seriesLoading ? <RowSkeleton /> : (
                   <ExpandableRow
                     items={trendSeries.map(s => ({ item: s, type: 'series' }))}
@@ -706,7 +688,7 @@ export default function DiscoverPage() {
                     libraryCheck={seriesCheckFn}
                   />
                 )}
-              </section>
+              </ContentBand>
             )}
 
           </div>

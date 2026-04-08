@@ -18,106 +18,189 @@
   body {
     background-color: #0b0b0f;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: #ffffff;
+    color: #f2f2f5;
     min-height: 100dvh;
   }
 
   ::-webkit-scrollbar        { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track  { background: transparent; }
-  ::-webkit-scrollbar-thumb  { background: #3f3f46; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb  { background: #2a2a3a; border-radius: 99px; }
 }
 
 @layer components {
-  /* Skeleton — dark shimmer */
+
+  /* ─── Skeleton — dark shimmer ───────────────────────────────────────────── */
   .skeleton {
-    background-color: #1f1f2e;
-    background-image: linear-gradient(90deg, #1f1f2e 25%, #2a2a40 50%, #1f1f2e 75%);
+    background-color: #16161f;
+    background-image: linear-gradient(90deg, #16161f 25%, #1f1f2e 50%, #16161f 75%);
     background-size: 200% 100%;
-    animation: shimmer 1.6s infinite linear;
+    animation: shimmer 1.8s infinite linear;
     border-radius: 4px;
   }
 
-  /* Section label — overline */
+  /* ─── Typography scale — fluid, viewport-responsive ─────────────────────── */
+
+  /* Display — home masthead, fullscreen heroes */
+  .display {
+    font-size: clamp(3rem, 7.5vw, 6.5rem);
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+    color: #f2f2f5;
+  }
+
+  /* Headline XL — page heroes, major chapter openers */
+  .headline-xl {
+    font-size: clamp(2.25rem, 5vw, 4.5rem);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    color: #f2f2f5;
+  }
+
+  /* Headline LG — featured section titles */
+  .headline-lg {
+    font-size: clamp(1.75rem, 3.5vw, 3.25rem);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    color: #f2f2f5;
+  }
+
+  /* Headline MD — subsection titles */
+  .headline-md {
+    font-size: clamp(1.25rem, 2vw, 1.875rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: #f2f2f5;
+  }
+
+  /* Eyebrow — overlines, category labels */
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  /* Body lead — editorial supporting paragraphs */
+  .body-lead {
+    font-size: clamp(1rem, 1.5vw, 1.125rem);
+    font-weight: 400;
+    line-height: 1.75;
+  }
+
+  /* ─── Legacy compatibility — kept for detail/secondary pages ─────────────── */
   .section-label {
-    @apply text-[10px] font-semibold tracking-[0.18em] uppercase;
-    color: #6b7280;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #5a5a70;
+  }
+  .title-xl {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #f2f2f5;
+    line-height: 1.1;
+  }
+  .title-lg {
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: #f2f2f5;
+    line-height: 1.2;
+  }
+  /* Keep new scale classes for detail pages */
+  .section-title-xl {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 900;
+    letter-spacing: -0.025em;
+    color: #f2f2f5;
+    line-height: 1.1;
+  }
+  .hero-headline {
+    font-size: clamp(2.25rem, 5vw, 4rem);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
   }
 
-  /* Divider */
+  /* ─── Divider ────────────────────────────────────────────────────────────── */
   .divider {
-    border-top: 1px solid #1e1e2a;
+    border-top: 1px solid #18182a;
   }
 
-  /* Focus ring — applies globally to keyboard-navigated elements */
+  /* ─── Focus ring ─────────────────────────────────────────────────────────── */
   *:focus-visible {
     outline: 2px solid #8b5cf6;
     outline-offset: 2px;
     border-radius: 4px;
   }
 
-  /* Active press feedback — subtle scale for all interactive controls */
+  /* ─── Active press feedback ──────────────────────────────────────────────── */
   button:not(:disabled):active,
   [role="button"]:not(:disabled):active {
     transform: scale(0.97);
     transition-duration: 0.08s !important;
   }
 
-  /* Primary gradient button */
+  /* ─── Primary button ─────────────────────────────────────────────────────── */
   .btn-primary {
     background: linear-gradient(135deg, #8b5cf6, #6d28d9);
     color: white;
     border-radius: 999px;
-    padding: 10px 20px;
-    font-weight: 500;
+    padding: 11px 22px;
+    font-weight: 600;
     font-size: 13px;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
     border: none;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    letter-spacing: -0.01em;
   }
   .btn-primary:hover {
-    transform: scale(1.04);
-    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+    transform: scale(1.03);
+    box-shadow: 0 0 28px rgba(139, 92, 246, 0.45);
   }
 
-  /* Typography hierarchy */
-  .title-xl {
-    font-size: 32px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #ffffff;
-    line-height: 1.1;
-  }
-  .title-lg {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: #ffffff;
-    line-height: 1.2;
-  }
-
-  /* Horizontal scroll row */
+  /* ─── Horizontal scroll row ──────────────────────────────────────────────── */
   .scroll-row {
-    @apply flex gap-4 overflow-x-auto pb-1;
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 4px;
     scrollbar-width: none;
   }
   .scroll-row::-webkit-scrollbar { display: none; }
+
+  /* ─── Editorial section divider line ─────────────────────────────────────── */
+  .chapter-line {
+    width: 2.5rem;
+    height: 2px;
+    background: currentColor;
+    opacity: 0.25;
+  }
 }
 
-/* ─── Reduced motion — disable all animations and shorten transitions ────────
-   Users who have opted into "reduce motion" in their OS settings get a
-   still, instant-transition experience instead of animations.             */
+/* ─── Shimmer keyframe ─────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* ─── Reduced motion ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  /* Kill skeleton shimmer — show a static dim background instead */
   .skeleton {
     animation: none !important;
     background-image: none !important;
-    background-color: #1f1f2e !important;
+    background-color: #16161f !important;
   }
-
-  /* Disable page / tab / toast animations */
   .animate-fade-in,
   .animate-fade-up,
   .animate-slide-up,
@@ -126,8 +209,6 @@
     opacity: 1 !important;
     transform: none !important;
   }
-
-  /* Kill all remaining keyframe animations and shorten transitions */
   *,
   *::before,
   *::after {

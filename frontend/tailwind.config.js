@@ -9,16 +9,17 @@ export default {
       colors: {
         // ── Dark mode base ─────────────────────────────────────────────────
         canvas:   '#0b0b0f',       // page background
-        surface:  '#151520',       // card / panel background
-        'surface-high': '#1f1f2e', // elevated surface, hover states
+        surface:  '#111118',       // card / panel background — slightly lifted
+        'surface-high': '#1a1a28', // elevated surface, hover states
+        'zone-deep': '#08080c',    // deepest background zone
         ink: {
-          DEFAULT: '#ffffff',      // primary text
-          mid:     '#b3b3c6',      // secondary text
-          light:   '#6b7280',      // muted text
-          faint:   '#3f3f46',      // placeholders / disabled
+          DEFAULT: '#f2f2f5',      // primary text — off-white for refined feel
+          mid:     '#9898b0',      // secondary text
+          light:   '#5a5a70',      // muted text
+          faint:   '#333345',      // placeholders / disabled
         },
-        line:     '#1e1e2a',       // borders, dividers
-        subtle:   'rgba(255,255,255,0.08)', // subtle card borders
+        line:     '#18182a',       // borders, dividers — slightly more visible
+        subtle:   'rgba(255,255,255,0.06)', // subtle card borders
         // ── Accent (purple) ────────────────────────────────────────────────
         accent: {
           DEFAULT: '#8b5cf6',

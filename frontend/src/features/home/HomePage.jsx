@@ -13,6 +13,7 @@ import ExpandableRow from '@/components/ui/ExpandableRow';
 import InlineDetail from '@/components/ui/InlineDetail';
 import RecentlySaved from './sections/RecentlySaved';
 import TrendingNow from './sections/TrendingNow';
+import ContentBand from '@/components/ui/ContentBand';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -149,12 +150,10 @@ function BecauseYouLike({ categoryId, games = [], movies = [], series = [], isLo
         </div>
       )}
       <div className="relative">
-        <SectionHead
-          overline="Picked for you"
-          title={`${cat?.emoji ?? '🎮'} Because you like ${cat?.label ?? categoryId}`}
-          color="violet"
-          size="xl"
-        />
+        <p className="eyebrow text-violet-400 mb-6">Picked for you</p>
+        <h2 className="headline-lg text-ink mb-10">
+          {cat?.emoji ?? '🎮'} Because you like {cat?.label ?? categoryId}
+        </h2>
         {isLoading ? (
           <div className="flex gap-3 overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -182,33 +181,6 @@ function getCategoryImage(tag) {
     .filter(g => g.tags?.includes(tag) && g.image)
     .sort((a, b) => b.rating - a.rating);
   return games[0]?.image ?? null;
-}
-
-// ─── Section header ───────────────────────────────────────────────────────────
-
-function SectionHead({ overline, title, color = 'default', action, size }) {
-  const colorMap = {
-    accent:  { bar: 'bg-accent',     over: 'text-accent' },
-    amber:   { bar: 'bg-amber-500',  over: 'text-amber-400' },
-    violet:  { bar: 'bg-violet-500', over: 'text-violet-400' },
-    default: { bar: 'bg-line',       over: 'text-ink-light' },
-  };
-  const c = colorMap[color] ?? colorMap.default;
-  const titleClass = size === 'xl'
-    ? 'text-3xl sm:text-4xl font-black tracking-[-0.02em]'
-    : 'title-lg';
-  return (
-    <div className="flex items-end justify-between gap-4 mb-5">
-      <div>
-        <div className="flex items-center gap-2.5 mb-2">
-          <div className={`w-0.5 h-5 ${c.bar} rounded-full shrink-0`} />
-          <p className={`text-[10px] font-black tracking-[0.2em] uppercase ${c.over}`}>{overline}</p>
-        </div>
-        <h2 className={titleClass}>{title}</h2>
-      </div>
-      {action}
-    </div>
-  );
 }
 
 // ─── Hero Search ──────────────────────────────────────────────────────────────
@@ -307,20 +279,17 @@ function HeroSearch({ onCategoryClick }) {
 
   return (
     <section
-      className="flex flex-col items-center justify-center px-5 sm:px-8 pt-24 pb-14"
-      style={{ minHeight: '56vh' }}
+      className="flex flex-col items-center justify-center bg-canvas px-6 sm:px-12 lg:px-20 pb-20"
+      style={{ minHeight: '88vh' }}
     >
-      <div className="w-full max-w-2xl">
-        {/* Headline */}
-        <p className="text-[10px] font-black tracking-[0.28em] uppercase text-accent text-center mb-4">
-          LUMIUM
-        </p>
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-ink text-center leading-[1.05] tracking-[-0.02em] mb-3">
-          Discover your next<br />
-          <span className="text-accent">obsession</span>
+      <div className="w-full max-w-[1280px] mx-auto pt-16">
+        {/* Editorial masthead */}
+        <p className="eyebrow text-accent text-center mb-7">LUMIUM</p>
+        <h1 className="display text-ink text-center mb-7">
+          Discover your<br />next obsession.
         </h1>
-        <p className="text-sm text-ink-mid text-center mb-8">
-          Games, movies, and series &mdash; all in one place.
+        <p className="body-lead text-ink-mid text-center max-w-xl mx-auto mb-14">
+          Games, movies, and series &mdash; discovered through the lens of what you actually love.
         </p>
 
         {/* Search input + dropdown */}
@@ -339,9 +308,9 @@ function HeroSearch({ onCategoryClick }) {
               onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
               onFocus={() => setIsOpen(true)}
               placeholder="Search games, movies, series..."
-              className="w-full bg-surface border border-line rounded-2xl pl-12 pr-12 py-4 text-base text-ink
-                         placeholder:text-ink-light focus:outline-none focus:border-accent/50
-                         focus:ring-4 focus:ring-accent/10 shadow-sm transition-all duration-200"
+              className="w-full bg-surface border border-line/80 rounded-2xl pl-12 pr-12 py-4 text-[15px] text-ink
+                         placeholder:text-ink-light focus:outline-none focus:border-accent/40
+                         focus:ring-4 focus:ring-accent/8 transition-all duration-200"
             />
             {query && (
               <button
@@ -503,13 +472,14 @@ function HeroSearch({ onCategoryClick }) {
         </div>
 
         {/* Quick category chips */}
-        <div className="flex flex-wrap gap-2 justify-center mt-6">
+        <div className="flex flex-wrap gap-2.5 justify-center mt-8">
           {CATEGORIES.slice(0, 8).map(cat => (
             <button
               key={cat.id}
               onClick={() => handleChipClick(cat.id)}
-              className="text-xs text-ink-mid border border-line rounded-full px-3 py-1.5 bg-surface
-                         hover:border-accent/40 hover:text-accent transition-colors"
+              className="text-[13px] font-medium text-ink-mid border border-line/70 rounded-full
+                         px-4 py-2 bg-surface hover:border-accent/35 hover:text-ink
+                         transition-all duration-200"
             >
               {cat.emoji} {cat.label}
             </button>
@@ -837,75 +807,60 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-canvas">
 
-      {/* ══════════════════════════════════════════════════════════════════
-          1. HERO SEARCH
-      ══════════════════════════════════════════════════════════════════ */}
+      {/* ══ CHAPTER 1 — MASTHEAD ════════════════════════════════════════════ */}
       <HeroSearch onCategoryClick={toggleGenre} />
 
-      {/* ══════════════════════════════════════════════════════════════════
-          2. RECENTLY SAVED
-      ══════════════════════════════════════════════════════════════════ */}
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-        <p className="text-[10px] font-black tracking-[0.2em] uppercase text-ink-light mb-3">SAVED</p>
+      {/* ══ CHAPTER 2 — RECENTLY SAVED ══════════════════════════════════════ */}
+      <ContentBand zone="surface" size="compact" topBorder>
+        <p className="eyebrow text-ink-light mb-6">Your library</p>
         <RecentlySaved />
-      </div>
+      </ContentBand>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          3. BECAUSE YOU PLAYED — full-bleed editorial band
-      ══════════════════════════════════════════════════════════════════ */}
-      <div id="because-you-played" className="bg-surface border-y border-line py-14 mt-14">
-        <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-          <p className="text-[10px] font-black tracking-[0.28em] uppercase text-accent mb-3">
-            BECAUSE YOU PLAYED
+      {/* ══ CHAPTER 3 — BECAUSE YOU PLAYED ═════════════════════════════════ */}
+      <ContentBand id="because-you-played" zone="canvas" size="lg" topBorder>
+        <p className="eyebrow text-accent mb-6">Because you played</p>
+        <BecauseYouPlayed />
+      </ContentBand>
+
+      {/* ══ CHAPTER 4 — TRENDING NOW (zones handled inside TrendingNow) ════ */}
+      <ContentBand zone="deep" size="lg" topBorder contained={false}>
+        <div className="max-w-[1280px] mx-auto px-6 sm:px-12 lg:px-20 pb-12">
+          <p className="eyebrow text-amber-400 mb-6">Right now</p>
+          <h2 className="headline-xl text-ink mb-5">Trending</h2>
+          <p className="body-lead text-ink-mid max-w-2xl">
+            What everyone is playing, watching, and saving this week.
           </p>
-          <BecauseYouPlayed />
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════════
-          4. TRENDING NOW
-      ══════════════════════════════════════════════════════════════════ */}
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-        <div className="pt-16 pb-2">
-          <p className="text-[10px] font-black tracking-[0.28em] uppercase text-amber-400 mb-2">RIGHT NOW</p>
-          <h2 className="text-4xl sm:text-5xl font-black text-ink leading-none tracking-[-0.02em] mb-1">Trending</h2>
-          <p className="text-sm text-ink-light mb-8">What everyone is playing, watching, and saving</p>
         </div>
         <TrendingNow />
-      </div>
+      </ContentBand>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          5. BECAUSE YOU LIKE — full-bleed accent band
-      ══════════════════════════════════════════════════════════════════ */}
-      <div className="bg-surface border-y border-line py-14 mt-14">
-        <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-          <BecauseYouLike
-            categoryId={becauseCategoryId}
-            games={recommendedGames}
-            movies={becauseMovies}
-            series={becauseSeries}
-            isLoading={recommendedLoading}
-          />
-        </div>
-      </div>
+      {/* ══ CHAPTER 5 — BECAUSE YOU LIKE ════════════════════════════════════ */}
+      <ContentBand zone="accent-tint" size="lg" topBorder>
+        <BecauseYouLike
+          categoryId={becauseCategoryId}
+          games={recommendedGames}
+          movies={becauseMovies}
+          series={becauseSeries}
+          isLoading={recommendedLoading}
+        />
+      </ContentBand>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          6. BROWSE BY CATEGORY
-      ══════════════════════════════════════════════════════════════════ */}
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-        <section id="browse-categories" className="pt-14">
-        <div className="flex items-end justify-between gap-4 mb-5">
+      {/* ══ CHAPTER 6 — BROWSE BY CATEGORY ═════════════════════════════════ */}
+      <ContentBand zone="canvas" size="lg" topBorder>
+        <section id="browse-categories">
+        <div className="flex items-start justify-between gap-6 mb-12">
           <div>
-            <div className="flex items-center gap-2.5 mb-2">
-              <div className="w-0.5 h-5 bg-accent rounded-full shrink-0" />
-              <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent">DISCOVER</p>
-            </div>
-            <h2 className="title-lg">What are you in the mood for?</h2>
+            <p className="eyebrow text-accent mb-6">Explore</p>
+            <h2 className="headline-lg text-ink mb-4">What are you in the mood for?</h2>
+            <p className="body-lead text-ink-mid max-w-xl">
+              Pick a genre and Lumium will surface the best games, films, and shows in that world.
+            </p>
           </div>
           {anyFilterActive && (
             <button
               onClick={clearAllFilters}
-              className="shrink-0 text-xs text-ink-light hover:text-ink border border-line rounded-full px-3 py-1.5 transition-colors"
+              className="shrink-0 mt-1 text-[13px] font-medium text-ink-light hover:text-ink
+                         border border-line/70 rounded-full px-4 py-2 transition-colors"
             >
               Clear all
             </button>
@@ -1173,23 +1128,22 @@ export default function HomePage() {
           </div>
         </div>
         </section>
+      </ContentBand>
 
-      </div>
-
-      {/* FOOTER */}
-      <footer className="border-t border-line py-10 px-5 sm:px-8 lg:px-12">
-        <div className="max-w-screen-xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
+      <footer className="bg-zone-deep border-t border-line/50 py-16 px-6 sm:px-12 lg:px-20">
+        <div className="max-w-[1280px] mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div>
-            <p className="text-sm font-semibold tracking-[0.14em] uppercase text-ink">LUMIUM</p>
-            <p className="text-xs text-ink-light mt-1">
-              Games, movies, and series &mdash; all in one place.
+            <p className="text-[13px] font-black tracking-[0.22em] uppercase text-ink">LUMIUM</p>
+            <p className="text-[13px] text-ink-light mt-2 leading-relaxed">
+              A cross-media taste engine for games, films, and series.
             </p>
           </div>
-          <div className="flex items-center gap-5">
-            <Link to="/search" className="text-xs text-ink-light hover:text-ink transition-colors">Search</Link>
-            <Link to="/discover" className="text-xs text-ink-light hover:text-ink transition-colors">Discover</Link>
+          <div className="flex items-center gap-6">
+            <Link to="/search"   className="text-[13px] text-ink-light hover:text-ink transition-colors">Search</Link>
+            <Link to="/discover" className="text-[13px] text-ink-light hover:text-ink transition-colors">Discover</Link>
             {!isAuthenticated && (
-              <Link to="/register" className="btn-primary text-xs">
+              <Link to="/register" className="text-[13px] font-semibold bg-ink text-canvas px-5 py-2.5 rounded-full hover:bg-ink/80 transition-colors">
                 Get started
               </Link>
             )}

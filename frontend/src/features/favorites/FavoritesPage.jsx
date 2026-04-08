@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useUserLibraryStore } from '@/features/library/libraryStore';
 import LibraryCard, { LibraryCardSkeleton } from './LibraryCard';
 import DragRow from '@/components/ui/DragRow';
+import ContentBand from '@/components/ui/ContentBand';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -104,22 +105,18 @@ function SortPills({ sort, onSort }) {
 // ─── Section header ───────────────────────────────────────────────────────────
 
 function SectionHead({ type, count, onViewAll }) {
-  const cfg = TYPE_CFG[type];
+  const cfg   = TYPE_CFG[type];
+  const eyebrowColor = type === 'game' ? 'text-accent' : type === 'movie' ? 'text-amber-400' : 'text-violet-400';
   return (
-    <div className="flex items-end justify-between gap-4 mb-5">
+    <div className="flex items-start justify-between gap-4 mb-10">
       <div>
-        <div className="flex items-center gap-2.5 mb-2">
-          <div className={`w-0.5 h-5 ${cfg.bar} rounded-full shrink-0`} />
-          <p className={`text-[10px] font-black tracking-[0.2em] uppercase ${cfg.color}`}>
-            {cfg.overline}
-          </p>
-        </div>
-        <h2 className="title-lg">{cfg.label}</h2>
+        <p className={`eyebrow ${eyebrowColor} mb-4`}>{cfg.overline}</p>
+        <h2 className="headline-lg text-ink">{cfg.label}</h2>
       </div>
       {count > 0 && onViewAll && (
         <button
           onClick={onViewAll}
-          className="shrink-0 text-xs text-ink-light hover:text-ink transition-colors pb-1"
+          className="shrink-0 text-[13px] font-medium text-ink-light hover:text-ink transition-colors mt-1"
         >
           View all {count} →
         </button>
@@ -176,24 +173,6 @@ function GlobalEmptyState() {
   );
 }
 
-// ─── Horizontal scroll section (used in All view) ─────────────────────────────
-
-function TypeScrollSection({ type, items, sort, onViewAll }) {
-  const sorted = sortItems(items, sort);
-  return (
-    <section>
-      <SectionHead type={type} count={items.length} onViewAll={onViewAll} />
-      <DragRow gap="gap-3">
-        {sorted.map(item => (
-          <div key={item.id} className="shrink-0 w-28 sm:w-32 pointer-events-auto">
-            <LibraryCard item={item} />
-          </div>
-        ))}
-      </DragRow>
-    </section>
-  );
-}
-
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
 function LoadingSkeleton() {
@@ -234,135 +213,161 @@ export default function FavoritesPage() {
   const isEmpty = library.length === 0;
 
   return (
-    <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-10">
+    <div className="min-h-screen bg-canvas">
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="mb-8">
-        <p className="text-[10px] font-black tracking-[0.24em] uppercase text-accent mb-2">
-          Your collection
-        </p>
-        <h1 className="text-3xl font-bold text-ink tracking-tight mb-4">Library</h1>
-
-        {!loading && !isEmpty && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <StatBadge
-              count={games.length}  label="games"
-              color="text-accent"     barColor="bg-accent"
-              onClick={() => setActiveTab('game')}
-            />
-            <StatBadge
-              count={movies.length} label="movies"
-              color="text-amber-400"  barColor="bg-amber-500"
-              onClick={() => setActiveTab('movie')}
-            />
-            <StatBadge
-              count={series.length} label="series"
-              color="text-violet-400" barColor="bg-violet-500"
-              onClick={() => setActiveTab('series')}
-            />
-          </div>
-        )}
+      {/* ── Editorial Hero ──────────────────────────────────────────────────── */}
+      <div
+        className="bg-zone-deep flex flex-col justify-center px-6 sm:px-12 lg:px-20 border-b border-line/50"
+        style={{ minHeight: '60vh' }}
+      >
+        <div className="max-w-[1280px] mx-auto w-full pt-16 pb-16">
+          <p className="eyebrow text-accent mb-7">Your collection</p>
+          <h1 className="display text-ink mb-7">Library.</h1>
+          {!loading && !isEmpty && (
+            <div className="flex items-center gap-3 flex-wrap mb-4">
+              <StatBadge
+                count={games.length}  label="games"
+                color="text-accent"     barColor="bg-accent"
+                onClick={() => setActiveTab('game')}
+              />
+              <StatBadge
+                count={movies.length} label="movies"
+                color="text-amber-400"  barColor="bg-amber-500"
+                onClick={() => setActiveTab('movie')}
+              />
+              <StatBadge
+                count={series.length} label="series"
+                color="text-violet-400" barColor="bg-violet-500"
+                onClick={() => setActiveTab('series')}
+              />
+            </div>
+          )}
+          {isEmpty && !loading && (
+            <p className="body-lead text-ink-mid max-w-xl">
+              Everything you save — games, movies, and series — lives here.
+            </p>
+          )}
+        </div>
       </div>
+
+    <div className="pb-20">
 
       {/* ── Loading ─────────────────────────────────────────────────────────── */}
       {loading ? (
-        <LoadingSkeleton />
+        <ContentBand zone="canvas" size="lg">
+          <LoadingSkeleton />
+        </ContentBand>
 
       ) : isEmpty ? (
-        <GlobalEmptyState />
+        <ContentBand zone="canvas" size="lg" topBorder>
+          <GlobalEmptyState />
+        </ContentBand>
 
       ) : (
         <>
-          {/* ── Tabs + sort ───────────────────────────────────────────────────── */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-8">
-
-            {/* Underline tab bar */}
-            <div
-              className="flex items-center gap-0 border-b border-line overflow-x-auto"
-              style={{ scrollbarWidth: 'none' }}
-              role="tablist"
-            >
-              {TABS.map(tab => {
-                const count    = counts[tab.id] ?? 0;
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    role="tab"
-                    aria-selected={isActive}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold
-                               border-b-2 -mb-px transition-all duration-200 ${
-                      isActive
-                        ? 'border-accent text-ink'
-                        : 'border-transparent text-ink-light hover:text-ink-mid'
-                    }`}
-                  >
-                    {tab.label}
-                    {count > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
-                        isActive ? 'bg-accent/15 text-accent' : 'bg-line text-ink-light'
-                      }`}>
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+          {/* ── Tabs + sort bar ───────────────────────────────────────────────── */}
+          <ContentBand zone="surface" size="compact" topBorder>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div
+                className="flex items-center gap-0 border-b border-line/60 overflow-x-auto"
+                style={{ scrollbarWidth: 'none' }}
+                role="tablist"
+              >
+                {TABS.map(tab => {
+                  const count    = counts[tab.id] ?? 0;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`shrink-0 flex items-center gap-1.5 px-5 py-3 text-[13px] font-semibold
+                                 border-b-2 -mb-px transition-all duration-200 ${
+                        isActive
+                          ? 'border-accent text-ink'
+                          : 'border-transparent text-ink-light hover:text-ink-mid'
+                      }`}
+                    >
+                      {tab.label}
+                      {count > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                          isActive ? 'bg-accent/15 text-accent' : 'bg-line text-ink-light'
+                        }`}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <SortPills sort={sort} onSort={setSort} />
             </div>
-
-            {/* Sort pills */}
-            <SortPills sort={sort} onSort={setSort} />
-          </div>
+          </ContentBand>
 
           {/* ── Content ───────────────────────────────────────────────────────── */}
 
-          {/* All view — type-segmented horizontal scroll rows */}
           {activeTab === 'all' && (
-            <div key="all" className="space-y-14 animate-fade-in">
+            <div key="all" className="animate-fade-in">
               {games.length > 0 && (
-                <TypeScrollSection
-                  type="game"
-                  items={games}
-                  sort={sort}
-                  onViewAll={() => setActiveTab('game')}
-                />
+                <ContentBand zone="canvas" size="lg" topBorder>
+                  <SectionHead type="game" count={games.length} onViewAll={() => setActiveTab('game')} />
+                  <DragRow gap="gap-3">
+                    {sortItems(games, sort).map(item => (
+                      <div key={item.id} className="shrink-0 w-28 sm:w-32 pointer-events-auto">
+                        <LibraryCard item={item} />
+                      </div>
+                    ))}
+                  </DragRow>
+                </ContentBand>
               )}
               {movies.length > 0 && (
-                <TypeScrollSection
-                  type="movie"
-                  items={movies}
-                  sort={sort}
-                  onViewAll={() => setActiveTab('movie')}
-                />
+                <ContentBand zone="surface" size="lg" topBorder>
+                  <SectionHead type="movie" count={movies.length} onViewAll={() => setActiveTab('movie')} />
+                  <DragRow gap="gap-3">
+                    {sortItems(movies, sort).map(item => (
+                      <div key={item.id} className="shrink-0 w-28 sm:w-32 pointer-events-auto">
+                        <LibraryCard item={item} />
+                      </div>
+                    ))}
+                  </DragRow>
+                </ContentBand>
               )}
               {series.length > 0 && (
-                <TypeScrollSection
-                  type="series"
-                  items={series}
-                  sort={sort}
-                  onViewAll={() => setActiveTab('series')}
-                />
+                <ContentBand zone="canvas" size="lg" topBorder>
+                  <SectionHead type="series" count={series.length} onViewAll={() => setActiveTab('series')} />
+                  <DragRow gap="gap-3">
+                    {sortItems(series, sort).map(item => (
+                      <div key={item.id} className="shrink-0 w-28 sm:w-32 pointer-events-auto">
+                        <LibraryCard item={item} />
+                      </div>
+                    ))}
+                  </DragRow>
+                </ContentBand>
               )}
             </div>
           )}
 
-          {/* Filtered view — flat grid */}
           {activeTab !== 'all' && (
             <div key={activeTab} className="animate-fade-in">
               {visibleItems.length === 0 ? (
-                <TypeEmptyState type={activeTab} />
+                <ContentBand zone="canvas" size="lg" topBorder>
+                  <TypeEmptyState type={activeTab} />
+                </ContentBand>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
-                  {visibleItems.map(item => (
-                    <LibraryCard key={item.id} item={item} />
-                  ))}
-                </div>
+                <ContentBand zone="canvas" size="lg" topBorder>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+                    {visibleItems.map(item => (
+                      <LibraryCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                </ContentBand>
               )}
             </div>
           )}
         </>
       )}
+    </div>
     </div>
   );
 }

@@ -325,24 +325,27 @@ export default function Header() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const navLinkClass = ({ isActive }) =>
-    `text-sm transition-colors duration-150 ${
-      isActive ? 'text-ink font-semibold' : 'text-ink-mid hover:text-ink'
+    `text-[13px] tracking-wide transition-colors duration-150 ${
+      isActive
+        ? 'text-ink font-semibold'
+        : 'text-ink-mid hover:text-ink font-medium'
     }`;
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 bg-canvas/95 backdrop-blur-md border-b border-line">
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12">
-        <div className="flex items-center justify-between h-14 gap-4">
+    <header className="fixed top-0 inset-x-0 z-50 bg-canvas/90 backdrop-blur-xl border-b border-line/60">
+      <div className="max-w-[1280px] mx-auto px-6 sm:px-12 lg:px-20">
+        <div className="flex items-center justify-between h-14 gap-6">
 
           {/* Logo */}
-          <Link to="/" className="shrink-0">
-            <span className="text-sm font-semibold tracking-[0.14em] uppercase text-ink">
+          <Link to="/" className="shrink-0 group">
+            <span className="text-[13px] font-black tracking-[0.22em] uppercase text-ink
+                             group-hover:text-accent transition-colors duration-200">
               LUMIUM
             </span>
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden md:flex items-center gap-8">
             {isAuthenticated && (
               <NavLink to="/for-you" className={navLinkClass}>For You</NavLink>
             )}
@@ -353,28 +356,28 @@ export default function Header() {
           </nav>
 
           {/* Desktop right area: search + auth */}
-          <div className="hidden md:flex items-center gap-4 ml-auto">
+          <div className="hidden md:flex items-center gap-5 ml-auto">
             <SearchBar />
             {isAuthenticated ? (
-              <div className="flex items-center gap-3">
-                <NavLink to="/profile" className={navLinkClass}>
-                  <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center
-                                  text-[11px] font-bold text-accent-light border border-accent/30">
-                    {(user?.name ?? 'U')[0].toUpperCase()}
-                  </div>
-                </NavLink>
-              </div>
+              <NavLink to="/profile" className={navLinkClass}>
+                <div className="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center
+                                text-[11px] font-black text-accent-light border border-accent/25
+                                hover:border-accent/50 transition-colors">
+                  {(user?.name ?? 'U')[0].toUpperCase()}
+                </div>
+              </NavLink>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <button
                   onClick={() => navigate('/login')}
-                  className="text-sm text-ink-mid hover:text-ink transition-colors"
+                  className="text-[13px] font-medium text-ink-mid hover:text-ink transition-colors"
                 >
                   Sign in
                 </button>
                 <button
                   onClick={() => navigate('/register')}
-                  className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-1.5 rounded-full font-medium transition-colors"
+                  className="text-[13px] font-semibold bg-ink text-canvas px-4 py-1.5 rounded-full
+                             hover:bg-ink/80 transition-colors tracking-tight"
                 >
                   Get started
                 </button>
@@ -382,8 +385,8 @@ export default function Header() {
             )}
           </div>
 
-          {/* Mobile right area: search icon + avatar */}
-          <div className="md:hidden flex items-center gap-2 ml-auto">
+          {/* Mobile: search + avatar */}
+          <div className="md:hidden flex items-center gap-3 ml-auto">
             <button
               onClick={() => setMobileSearchOpen(o => !o)}
               className="p-1.5 text-ink-light hover:text-ink transition-colors"
@@ -396,15 +399,15 @@ export default function Header() {
             </button>
             {isAuthenticated ? (
               <Link to="/profile">
-                <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center
-                                text-[11px] font-bold text-accent-light border border-accent/30">
+                <div className="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center
+                                text-[11px] font-black text-accent-light border border-accent/25">
                   {(user?.name ?? 'U')[0].toUpperCase()}
                 </div>
               </Link>
             ) : (
               <button
                 onClick={() => navigate('/login')}
-                className="text-xs bg-accent text-white px-3 py-1 rounded-full font-medium"
+                className="text-[13px] font-semibold bg-ink text-canvas px-3 py-1 rounded-full"
               >
                 Sign in
               </button>
@@ -415,7 +418,7 @@ export default function Header() {
 
       {/* Mobile search panel */}
       {mobileSearchOpen && (
-        <div className="md:hidden bg-canvas border-t border-line px-5 py-3 animate-fade-in">
+        <div className="md:hidden bg-canvas/98 border-t border-line/60 px-6 py-4 animate-fade-in">
           <SearchBar onClose={() => setMobileSearchOpen(false)} />
         </div>
       )}
