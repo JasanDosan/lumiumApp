@@ -40,7 +40,6 @@ export const GENRE_NAMES = {
 };
 
 // ─── Game tag → TMDB genre IDs (cross-media taste bridge) ────────────────────
-// Allows game preferences to influence movie/series recommendations.
 
 const TAG_TO_TMDB = {
   'action':           [28],
@@ -95,20 +94,9 @@ function extractGenreIds(genres) {
 
 // ─── Profile builder ──────────────────────────────────────────────────────────
 
-/**
- * Derives a weighted taste profile from the user's full library.
- *
- * Weight formula per item:
- *   rating ≥ 8  → 1.5×  (user explicitly appreciated this)
- *   rating ≥ 6  → 1.2×
- *   no rating   → 1.0×  (saved = soft preference)
- *
- * Movies + series contribute TMDB genre IDs directly.
- * Games contribute via tag → TMDB bridge at 0.5× to supplement, not override.
- */
 export function buildTasteProfile(library) {
-  const genreWeights = new Map(); // TMDB genre ID (number) → cumulative weight
-  const tagWeights   = new Map(); // lowercase tag string   → cumulative weight
+  const genreWeights = new Map();
+  const tagWeights   = new Map();
   const typeCounts   = { game: 0, movie: 0, series: 0 };
 
   for (const item of library) {
@@ -126,7 +114,6 @@ export function buildTasteProfile(library) {
       (item.tags ?? []).forEach(rawTag => {
         const tag = rawTag.toLowerCase();
         tagWeights.set(tag, (tagWeights.get(tag) ?? 0) + weight);
-        // Bridge game tags → TMDB genres at half-weight
         (TAG_TO_TMDB[tag] ?? []).forEach(gid => {
           genreWeights.set(gid, (genreWeights.get(gid) ?? 0) + weight * 0.5);
         });
@@ -149,26 +136,16 @@ export function buildTasteProfile(library) {
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
 
-/**
- * Bayesian rating smoothing.
- * Prevents movies/series with few votes from scoring too high or too low.
- * Formula: (v / (v + 500)) * R + (500 / (v + 500)) * 6.5
- */
 function bayesianRating(rating, voteCount) {
   const v = voteCount ?? 0;
   return (v / (v + 500)) * (rating ?? 6.5) + (500 / (v + 500)) * 6.5;
 }
 
-/** Log-normalized popularity → [0, 10] prevents blockbusters from dominating. */
 function normPopularity(popularity) {
   if (!popularity || popularity <= 0) return 0;
   return Math.min((Math.log10(popularity + 1) / Math.log10(1001)) * 10, 10);
 }
 
-/**
- * Score a TMDB candidate (movie or series) against the user taste profile.
- * Returns null if already saved or if there's no genre overlap with a rich profile.
- */
 function scoreMediaCandidate(candidate, type, profile, savedIds) {
   const compoundId = type === 'movie'
     ? `movie_${Number(candidate.tmdbId)}`
@@ -176,7 +153,6 @@ function scoreMediaCandidate(candidate, type, profile, savedIds) {
 
   if (savedIds.has(compoundId)) return null;
 
-  // Candidates from /discover return genreIds; from /details return genres
   const candidateGenreIds = extractGenreIds(
     candidate.genreIds ?? candidate.genre_ids ?? candidate.genres ?? []
   );
@@ -193,57 +169,39 @@ function scoreMediaCandidate(candidate, type, profile, savedIds) {
     }
   });
 
-  // Normalize to [0, 10]; multiply by 1.5 so even 1 strong genre hit scores well
   genreScore = Math.min(genreScore * 1.5, 10);
 
-  // Skip candidates with zero genre overlap when we have a meaningful profile
   if (genreScore === 0 && profile.topGenres.length >= 2) return null;
 
   const adjustedRating  = bayesianRating(candidate.rating, candidate.voteCount);
-  const ratingScore     = (adjustedRating / 10) * 5;       // 0–5
-  const popularityScore = normPopularity(candidate.popularity) * 0.5; // 0–5
+  const ratingScore     = (adjustedRating / 10) * 5;
+  const popularityScore = normPopularity(candidate.popularity) * 0.5;
 
   const totalScore = genreScore * 2 + ratingScore + popularityScore;
 
-  const uniqueNames = [...new Set(matchedNames)].slice(0, 3);
-  const explanation = buildMediaExplanation(uniqueNames, adjustedRating);
+  const uniqueNames  = [...new Set(matchedNames)].slice(0, 3);
+  const explanation  = buildMediaExplanation(uniqueNames, adjustedRating);
 
-  return {
-    totalScore,
-    breakdown: { genreScore, ratingScore, popularityScore },
-    explanation,
-    basedOn: uniqueNames,
-  };
+  return { totalScore, breakdown: { genreScore, ratingScore, popularityScore }, explanation, basedOn: uniqueNames };
 }
 
 function buildMediaExplanation(matchedGenres, adjustedRating) {
   const parts = [];
-  if (matchedGenres.length >= 2) {
-    parts.push(`Matches your ${matchedGenres.slice(0, 2).join(' & ')} taste`);
-  } else if (matchedGenres.length === 1) {
-    parts.push(`Matches ${matchedGenres[0]} in your library`);
-  }
-  if (adjustedRating >= 7.5)      parts.push('Highly rated');
-  else if (adjustedRating >= 6.5) parts.push('Solid reviews');
+  if (matchedGenres.length >= 2)      parts.push(`Matches your ${matchedGenres.slice(0, 2).join(' & ')} taste`);
+  else if (matchedGenres.length === 1) parts.push(`Matches ${matchedGenres[0]} in your library`);
+  if (adjustedRating >= 7.5)           parts.push('Highly rated');
+  else if (adjustedRating >= 6.5)      parts.push('Solid reviews');
   return parts;
 }
 
-/**
- * Score and rank GAME_CATALOG entries against the user taste profile.
- * Uses tag overlap + TMDB genre bridge as signal.
- */
 function scoreGameCandidates(profile, savedIds, limit = 8) {
   const unsaved = GAME_CATALOG.filter(g => !savedIds.has(`game_${g.id}`));
 
-  // No signal → return top-rated catalog games as fallback
   if (profile.topTags.length === 0 && profile.genreWeights.size === 0) {
     return unsaved
       .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
       .slice(0, limit)
-      .map(g => ({
-        item: g, type: 'game', score: g.rating ?? 7,
-        explanation: ['Top-rated title'], basedOn: [],
-      }));
+      .map(g => ({ item: g, type: 'game', score: g.rating ?? 7, explanation: ['Top-rated title'], basedOn: [] }));
   }
 
   const scored = unsaved.map(g => {
@@ -255,8 +213,6 @@ function scoreGameCandidates(profile, savedIds, limit = 8) {
     tags.forEach(tag => {
       const tw = profile.tagWeights.get(tag) ?? 0;
       if (tw > 0) { tagScore += tw; matchedTags.push(capitalize(tag)); }
-
-      // Bridge through TMDB genres (user saved sci-fi movies → suggest sci-fi games)
       (TAG_TO_TMDB[tag] ?? []).forEach(gid => {
         const gw = profile.genreWeights.get(gid) ?? 0;
         if (gw > 0) bridgeScore += gw * 0.4;
@@ -265,9 +221,8 @@ function scoreGameCandidates(profile, savedIds, limit = 8) {
 
     if (tagScore === 0 && bridgeScore === 0) return null;
 
-    const ratingScore = ((g.rating ?? 7) / 10) * 3; // 0–3
+    const ratingScore = ((g.rating ?? 7) / 10) * 3;
     const totalScore  = tagScore * 2 + bridgeScore + ratingScore;
-
     const uniqueTags  = [...new Set(matchedTags)].slice(0, 3);
     const explanation = uniqueTags.length >= 2
       ? [`Because you enjoy ${uniqueTags.slice(0, 2).join(' & ')}`]
@@ -275,33 +230,17 @@ function scoreGameCandidates(profile, savedIds, limit = 8) {
       ? [`Matches your ${uniqueTags[0]} interest`]
       : ['Matches your library taste'];
 
-    return {
-      item: g, type: 'game', score: totalScore,
-      explanation, basedOn: uniqueTags,
-    };
+    return { item: g, type: 'game', score: totalScore, explanation, basedOn: uniqueTags };
   }).filter(Boolean);
 
-  return scored
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
-// ─── Summary builders (exported for BecauseYouPlayed) ────────────────────────
+// ─── Summary builders ─────────────────────────────────────────────────────────
 
-/**
- * One-line profile summary for the section header.
- * Examples:
- *   "Based on your taste for Sci-Fi & Action"
- *   "Inspired by your RPG & Horror titles"
- *   "Based on your saved library"
- */
 export function buildProfileSummary(profile) {
   const { topGenres, topTags } = profile;
-
-  const genreNames = topGenres.slice(0, 3)
-    .map(id => GENRE_NAMES[id])
-    .filter(Boolean);
-
+  const genreNames = topGenres.slice(0, 3).map(id => GENRE_NAMES[id]).filter(Boolean);
   if (genreNames.length >= 2) {
     const last  = genreNames[genreNames.length - 1];
     const front = genreNames.slice(0, -1).join(', ');
@@ -316,49 +255,26 @@ export function buildProfileSummary(profile) {
   return 'Based on your saved library';
 }
 
-/**
- * Per-row reason string shown below the row label.
- * Examples:
- *   movies: "Because you love Sci-Fi & Thriller"
- *   games:  "Because you enjoy RPG & Survival"
- */
 export function buildRowReason(type, profile) {
   const { topGenres, topTags } = profile;
-
   if (type === 'game') {
     const names = topTags.slice(0, 2).map(capitalize);
     if (names.length >= 2) return `Because you enjoy ${names.join(' & ')}`;
     if (names.length === 1) return `Matching your ${names[0]} taste`;
-    // Fall through to genre-based reason if no tags
     const bridgeGenres = topGenres.slice(0, 2).map(id => GENRE_NAMES[id]).filter(Boolean);
     if (bridgeGenres.length > 0) return `Inspired by your ${bridgeGenres.join(' & ')} library`;
     return 'Games matching your library';
   }
-
   const names = topGenres.slice(0, 2).map(id => GENRE_NAMES[id]).filter(Boolean);
   if (names.length >= 2) return `Because you love ${names.join(' & ')}`;
   if (names.length === 1) return `Because you love ${names[0]}`;
   return type === 'movie' ? 'Movies you might enjoy' : 'Series you might enjoy';
 }
 
-// ─── Main hook ────────────────────────────────────────────────────────────────
+// ─── Main hook (original) ─────────────────────────────────────────────────────
 
-const MIN_LIBRARY_SIZE = 3; // minimum items before generating recommendations
+const MIN_LIBRARY_SIZE = 3;
 
-/**
- * usePersonalizedRecs(library)
- *
- * @param {Array} library — flat array of all saved library items from libraryStore
- * @returns {{
- *   movies:         Array<{ item, type, score, explanation, basedOn }>,
- *   series:         Array<{ item, type, score, explanation, basedOn }>,
- *   games:          Array<{ item, type, score, explanation, basedOn }>,
- *   profile:        object | null,
- *   profileSummary: string,
- *   isLoading:      boolean,
- *   isEmpty:        boolean,   // true when library is too small
- * }}
- */
 export function usePersonalizedRecs(library) {
   const [movies,         setMovies]         = useState([]);
   const [series,         setSeries]         = useState([]);
@@ -367,7 +283,6 @@ export function usePersonalizedRecs(library) {
   const [profileSummary, setProfileSummary] = useState('');
   const [isLoading,      setIsLoading]      = useState(false);
 
-  // Stable key: only changes when items are added or removed
   const libraryKey = useMemo(
     () => library.map(i => i.id).sort().join(','),
     [library],
@@ -390,46 +305,31 @@ export function usePersonalizedRecs(library) {
     const genreParam = p.topGenres.slice(0, 3);
 
     const fetchMovies = genreParam.length > 0
-      ? mediaDiscoveryService.discover({ genres: genreParam, sort_by: 'vote_average.desc', rating_gte: 6.0, page: 1 })
-          .catch(() => ({ results: [] }))
+      ? mediaDiscoveryService.discover({ genres: genreParam, sort_by: 'vote_average.desc', rating_gte: 6.0, page: 1 }).catch(() => ({ results: [] }))
       : Promise.resolve({ results: [] });
 
     const fetchSeries = genreParam.length > 0
-      ? tvService.discover({ genres: genreParam, sort_by: 'vote_average.desc', rating_gte: 6.0 })
-          .catch(() => ({ results: [] }))
+      ? tvService.discover({ genres: genreParam, sort_by: 'vote_average.desc', rating_gte: 6.0 }).catch(() => ({ results: [] }))
       : Promise.resolve({ results: [] });
 
     let cancelled = false;
 
-    // Sequential fetch with 300ms gap to respect TMDB rate limits
     (async () => {
       try {
         const movieData = await fetchMovies;
         if (cancelled) return;
-
         await new Promise(r => setTimeout(r, 300));
         if (cancelled) return;
-
         const tvData = await fetchSeries;
         if (cancelled) return;
 
         const scoredMovies = (movieData?.results ?? [])
-          .map(m => {
-            const s = scoreMediaCandidate(m, 'movie', p, savedIds);
-            return s ? { item: m, type: 'movie', ...s } : null;
-          })
-          .filter(Boolean)
-          .sort((a, b) => b.totalScore - a.totalScore)
-          .slice(0, 8);
+          .map(m => { const s = scoreMediaCandidate(m, 'movie', p, savedIds); return s ? { item: m, type: 'movie', ...s } : null; })
+          .filter(Boolean).sort((a, b) => b.totalScore - a.totalScore).slice(0, 8);
 
         const scoredSeries = (tvData?.results ?? tvData?.items ?? [])
-          .map(s => {
-            const sc = scoreMediaCandidate(s, 'series', p, savedIds);
-            return sc ? { item: s, type: 'series', ...sc } : null;
-          })
-          .filter(Boolean)
-          .sort((a, b) => b.totalScore - a.totalScore)
-          .slice(0, 8);
+          .map(s => { const sc = scoreMediaCandidate(s, 'series', p, savedIds); return sc ? { item: s, type: 'series', ...sc } : null; })
+          .filter(Boolean).sort((a, b) => b.totalScore - a.totalScore).slice(0, 8);
 
         const scoredGames = scoreGameCandidates(p, savedIds, 8);
 
@@ -446,13 +346,242 @@ export function usePersonalizedRecs(library) {
     return () => { cancelled = true; };
   }, [libraryKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return {
-    movies,
-    series,
-    games,
-    profile,
-    profileSummary,
-    isLoading,
-    isEmpty: library.length < MIN_LIBRARY_SIZE,
-  };
+  return { movies, series, games, profile, profileSummary, isLoading, isEmpty: library.length < MIN_LIBRARY_SIZE };
+}
+
+// ─── Source-aware recommendation hook ────────────────────────────────────────
+
+/**
+ * Recommendation order per source mode.
+ * Cross-media types appear first; same-media type appears last.
+ *
+ *   MY VIDEOGAMES → Movies, Series, Videogames
+ *   MY MOVIES     → Videogames, Series, Movies
+ *   MY SERIES     → Videogames, Movies, Series
+ */
+const RECOMMENDATION_ORDER = {
+  game:   ['movie', 'series', 'game'],
+  movie:  ['game',  'series', 'movie'],
+  series: ['game',  'movie',  'series'],
+};
+
+const MIN_SOURCE_SIZE = 2;
+
+/**
+ * Derive available genre / tag filters from a set of source library items.
+ *
+ * @param {Array}  sourceItems — library items filtered to one source type
+ * @param {string} sourceMode  — 'game' | 'movie' | 'series'
+ * @returns {Array<{ id: string|number, name: string, count: number }>}
+ */
+export function deriveSourceGenres(sourceItems, sourceMode) {
+  if (sourceMode === 'game') {
+    const tagCounts = new Map();
+    for (const item of sourceItems) {
+      for (const tag of (item.tags ?? [])) {
+        const t = tag.toLowerCase().trim();
+        if (t) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+      }
+    }
+    return [...tagCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .map(([tag, count]) => ({ id: tag, name: capitalize(tag), count }));
+  }
+
+  // movies / series — TMDB genre IDs
+  const genreCounts = new Map();
+  for (const item of sourceItems) {
+    for (const gid of extractGenreIds(item.genres ?? [])) {
+      genreCounts.set(gid, (genreCounts.get(gid) ?? 0) + 1);
+    }
+  }
+  return [...genreCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 16)
+    .map(([id, count]) => ({ id, name: GENRE_NAMES[id] ?? '', count }))
+    .filter(g => g.name);
+}
+
+/**
+ * Build a human-readable reason string for a cross-media recommendation section.
+ *
+ * @param {string} sourceMode    — the user's chosen source ('game'|'movie'|'series')
+ * @param {string} sectionType   — the type being recommended ('movie'|'series'|'game')
+ * @param {object} profile       — taste profile from buildTasteProfile()
+ * @param {Array}  seeds         — items used to build the profile (may be subset of source library)
+ * @param {Set}    activeGenres  — currently active genre/tag filter IDs
+ * @returns {string}
+ */
+export function buildCrossMediaReason(sourceMode, sectionType, profile, seeds, activeGenres) {
+  const { topGenres, topTags } = profile;
+
+  // Active filter names (genre IDs → names, or tag strings → capitalized)
+  const filterNames = activeGenres.size > 0
+    ? [...activeGenres]
+        .map(g => typeof g === 'number' ? (GENRE_NAMES[g] ?? '') : capitalize(String(g)))
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
+  const seedTitles = seeds.slice(0, 2).map(s => s.title ?? s.name).filter(Boolean);
+
+  if (sourceMode === 'game') {
+    const tagNames = topTags.slice(0, 2).map(capitalize);
+    if (filterNames.length > 0) return `Filtered by ${filterNames.join(' & ')} from your saved games`;
+    if (seedTitles.length >= 2 && tagNames.length > 0) return `Because ${seedTitles[0]} and ${seedTitles[1]} share ${tagNames.join(' & ')} themes`;
+    if (seedTitles.length === 1 && tagNames.length > 0) return `Inspired by the ${tagNames.join(' & ')} tone of ${seedTitles[0]}`;
+    if (seedTitles.length === 1) return `Inspired by ${seedTitles[0]}`;
+    if (tagNames.length >= 2) return `Because your games share ${tagNames.join(' & ')} themes`;
+    if (tagNames.length === 1) return `Inspired by your ${tagNames[0]} game library`;
+    return 'Inspired by your saved games';
+  }
+
+  const srcLabel = sourceMode === 'movie' ? 'movies' : 'series';
+  const genreNames = topGenres.slice(0, 2).map(id => GENRE_NAMES[id]).filter(Boolean);
+
+  if (filterNames.length > 0) return `Filtered by ${filterNames.join(' & ')} from your saved ${srcLabel}`;
+  if (seedTitles.length >= 2) return `Because you saved ${seedTitles[0]} and ${seedTitles[1]}`;
+  if (seedTitles.length === 1) return `Inspired by ${seedTitles[0]}`;
+  if (genreNames.length >= 2) return `Because your ${srcLabel} lean ${genreNames.join(' & ')}`;
+  if (genreNames.length === 1) return `Based on your ${genreNames[0]} preference`;
+  return `Based on your saved ${srcLabel}`;
+}
+
+/**
+ * useSourceRecs — source-aware, seed-driven cross-media recommendations.
+ *
+ * @param {{ sourceMode, seedIds, activeGenres, library }}
+ *   sourceMode   — 'game' | 'movie' | 'series'
+ *   seedIds      — Set<string> of compound library IDs to use as profile seeds
+ *   activeGenres — Set<number|string> genre/tag filters (numbers for movie/series, strings for game)
+ *   library      — full library array from libraryStore
+ *
+ * @returns {{
+ *   sections:      Array<{ type, items, reason }>,
+ *   isLoading:     boolean,
+ *   isEmpty:       boolean,   // true when no source items exist
+ *   hasEnoughData: boolean,   // true when source has ≥ MIN_SOURCE_SIZE items
+ * }}
+ */
+export function useSourceRecs({ sourceMode, seedIds, activeGenres, library }) {
+  const [sections,      setSections]      = useState([]);
+  const [isLoading,     setIsLoading]     = useState(false);
+  const [isEmpty,       setIsEmpty]       = useState(false);
+  const [hasEnoughData, setHasEnoughData] = useState(true);
+
+  const seedKey   = useMemo(() => [...seedIds].sort().join(','),    [seedIds]);
+  const genreKey  = useMemo(() => [...activeGenres].sort().join(','), [activeGenres]);
+  const libKey    = useMemo(() => library.map(i => i.id).sort().join(','), [library]);
+
+  useEffect(() => {
+    // 1. Filter library to source type
+    const sourceItems = library.filter(i => i.type === sourceMode);
+
+    if (sourceItems.length === 0) {
+      setIsEmpty(true);
+      setHasEnoughData(false);
+      setSections([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsEmpty(false);
+    setHasEnoughData(sourceItems.length >= MIN_SOURCE_SIZE);
+
+    // 2. Profile base: seeds if provided, else all source items
+    const profileBase = seedIds.size > 0
+      ? sourceItems.filter(i => seedIds.has(i.id))
+      : sourceItems;
+
+    // If somehow all seeds were removed from library, fall back
+    const safeBase = profileBase.length > 0 ? profileBase : sourceItems;
+
+    // 3. Apply genre/tag filter
+    let filteredBase = safeBase;
+    if (activeGenres.size > 0) {
+      const filtered = sourceMode === 'game'
+        ? safeBase.filter(i => (i.tags ?? []).some(t => activeGenres.has(t.toLowerCase().trim())))
+        : safeBase.filter(i => extractGenreIds(i.genres ?? []).some(id => activeGenres.has(id)));
+      // Never filter down to zero — fall back to unfiltered
+      if (filtered.length > 0) filteredBase = filtered;
+    }
+
+    // 4. Build taste profile from filtered items
+    const profile   = buildTasteProfile(filteredBase);
+    const savedIds  = new Set(library.map(i => i.id));
+    const order     = RECOMMENDATION_ORDER[sourceMode];
+    const genreParam = profile.topGenres.slice(0, 3);
+
+    setIsLoading(true);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const results = { movie: [], series: [], game: [] };
+
+        // Fetch movies if needed
+        if (order.includes('movie') && genreParam.length > 0) {
+          try {
+            const data = await mediaDiscoveryService.discover({
+              genres: genreParam, sort_by: 'vote_average.desc', rating_gte: 6.0, page: 1,
+            });
+            if (!cancelled) {
+              results.movie = (data?.results ?? [])
+                .map(m => { const s = scoreMediaCandidate(m, 'movie', profile, savedIds); return s ? { item: m, type: 'movie', ...s } : null; })
+                .filter(Boolean)
+                .sort((a, b) => b.totalScore - a.totalScore)
+                .slice(0, 10);
+            }
+          } catch { /* non-fatal */ }
+        }
+
+        if (cancelled) return;
+        // Stagger to respect TMDB rate limits
+        await new Promise(r => setTimeout(r, 300));
+        if (cancelled) return;
+
+        // Fetch series if needed
+        if (order.includes('series') && genreParam.length > 0) {
+          try {
+            const data = await tvService.discover({
+              genres: genreParam, sort_by: 'vote_average.desc', rating_gte: 6.0,
+            });
+            if (!cancelled) {
+              results.series = (data?.results ?? data?.items ?? [])
+                .map(s => { const sc = scoreMediaCandidate(s, 'series', profile, savedIds); return sc ? { item: s, type: 'series', ...sc } : null; })
+                .filter(Boolean)
+                .sort((a, b) => b.totalScore - a.totalScore)
+                .slice(0, 10);
+            }
+          } catch { /* non-fatal */ }
+        }
+
+        if (cancelled) return;
+
+        // Score game candidates (in-memory, no fetch needed)
+        if (order.includes('game')) {
+          results.game = scoreGameCandidates(profile, savedIds, 10);
+        }
+
+        if (cancelled) return;
+
+        const builtSections = order.map(type => ({
+          type,
+          items:  results[type] ?? [],
+          reason: buildCrossMediaReason(sourceMode, type, profile, filteredBase, activeGenres),
+        }));
+
+        setSections(builtSections);
+      } catch (err) {
+        console.error('[useSourceRecs]', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [sourceMode, seedKey, genreKey, libKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { sections, isLoading, isEmpty, hasEnoughData };
 }

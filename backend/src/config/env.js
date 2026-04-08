@@ -9,7 +9,6 @@ const REQUIRED = [
   'TMDB_BASE_URL',
   'RAWG_API_KEY',
   'RAWG_BASE_URL',
-  'STEAM_API_KEY',
 ];
 
 export const validateEnv = () => {
@@ -22,5 +21,9 @@ export const validateEnv = () => {
 
   if (process.env.JWT_SECRET === 'your_super_secret_jwt_key_change_this_in_production') {
     console.warn('⚠️  WARNING: Using default JWT_SECRET. Change it before deploying.');
+  }
+
+  if (!process.env.STEAM_API_KEY) {
+    console.warn('⚠️  STEAM_API_KEY not set — Steam import will be unavailable.');
   }
 };

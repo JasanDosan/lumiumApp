@@ -17,7 +17,6 @@ rawg.interceptors.response.use(null, async (error) => {
 
   const status = error.response?.status;
 
-  // Explicit API-key error — log and bail immediately, no retry
   if (status === 401 || status === 403) {
     console.error('❌ RAWG API key inválida o no configurada');
     return Promise.reject(error);
@@ -37,15 +36,14 @@ rawg.interceptors.response.use(null, async (error) => {
   return Promise.reject(error);
 });
 
-// ─── Normalisation ────────────────────────────────────────────────────────────
+// ─── Normalisation — list cards ───────────────────────────────────────────────
 
 /**
- * Convert a raw RAWG game object into the unified shape expected by the frontend.
- * Shape mirrors the GAME_CATALOG entries: { id, name, title, type, image, emoji, rating, tags }
+ * Lean normalizer for list/search results.
+ * Keeps only what cards need: id, name, image, rating, slugs.
  */
 function normalizeGame(g) {
   const tags       = (g.genres ?? []).slice(0, 3).map(gen => gen.name);
-  // Preserve slugs so the frontend can do precise intersection filtering
   const genreSlugs = (g.genres ?? []).map(gen => gen.slug);
   const tagSlugs   = (g.tags   ?? []).map(t   => t.slug);
   return {
@@ -65,13 +63,107 @@ function normalizeGame(g) {
   };
 }
 
-// ─── Category → RAWG param mapping ───────────────────────────────────────────
+// ─── Normalisation — full detail ──────────────────────────────────────────────
 
 /**
- * Map app category IDs to RAWG genres/tags.
- * RAWG genres: action, adventure, role-playing-games-rpg, strategy, ...
- * RAWG tags:   horror, open-world, sci-fi, story-rich, stealth, survival, ...
+ * Rich normalizer for the game detail page.
+ * Preserves every RAWG field that the frontend can surface in a section.
  */
+export function normalizeGameDetail(g) {
+  const genres = (g.genres ?? []).map(gen => ({ id: gen.id, name: gen.name, slug: gen.slug }));
+  const tags   = (g.tags   ?? [])
+    .filter(t => t.language === 'eng')
+    .sort((a, b) => b.games_count - a.games_count)
+    .slice(0, 20)
+    .map(t => ({ id: t.id, name: t.name, slug: t.slug }));
+
+  const platforms = (g.platforms ?? []).map(p => ({
+    id:           p.platform.id,
+    name:         p.platform.slug === 'pc' ? 'PC' : p.platform.name,
+    slug:         p.platform.slug,
+    releasedAt:   p.released_at ?? null,
+  }));
+
+  const developers  = (g.developers  ?? []).map(d => ({ id: d.id, name: d.name, slug: d.slug }));
+  const publishers  = (g.publishers  ?? []).map(p => ({ id: p.id, name: p.name, slug: p.slug }));
+
+  const stores = (g.stores ?? []).map(s => ({
+    id:     s.id,
+    name:   s.store?.name ?? '',
+    slug:   s.store?.slug ?? '',
+    domain: s.store?.domain ?? '',
+    url:    s.url ?? null,
+  }));
+
+  const esrb = g.esrb_rating
+    ? { id: g.esrb_rating.id, name: g.esrb_rating.name, slug: g.esrb_rating.slug }
+    : null;
+
+  // Ratings breakdown (Exceptional / Recommended / Meh / Skip)
+  const ratings = (g.ratings ?? []).map(r => ({
+    id:      r.id,
+    title:   r.title,
+    count:   r.count,
+    percent: r.percent,
+  }));
+
+  return {
+    // ── Identity ───────────────────────────────────────────────────────────────
+    id:                   String(g.id),
+    rawgId:               String(g.id),
+    name:                 g.name,
+    title:                g.name,
+    type:                 'game',
+
+    // ── Images ────────────────────────────────────────────────────────────────
+    backgroundImage:      g.background_image          ?? null,
+    backgroundImageAlt:   g.background_image_additional ?? null,
+    image:                g.background_image          ?? null,
+
+    // ── Editorial ─────────────────────────────────────────────────────────────
+    description:          g.description_raw           ?? null,   // plain text
+    descriptionHtml:      g.description               ?? null,   // HTML (unused but preserved)
+    released:             g.released                  ?? null,
+    website:              g.website                   ?? null,
+    metacritic:           g.metacritic                ?? null,
+    metacriticUrl:        g.metacritic_url            ?? null,
+
+    // ── Ratings ───────────────────────────────────────────────────────────────
+    rating:               g.rating      ? parseFloat(g.rating.toFixed(2)) : null,
+    ratingTop:            g.rating_top  ?? 5,
+    ratingsCount:         g.ratings_count ?? 0,
+    ratings,
+
+    // ── Classification ─────────────────────────────────────────────────────────
+    genres,
+    tags,
+    platforms,
+    esrbRating:           esrb,
+
+    // ── Credits ───────────────────────────────────────────────────────────────
+    developers,
+    publishers,
+    stores,
+
+    // ── Community ─────────────────────────────────────────────────────────────
+    redditUrl:            g.reddit_url   ?? null,
+    redditName:           g.reddit_name  ?? null,
+    redditCount:          g.reddit_count ?? null,
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
+    achievementsCount:    g.achievements_count ?? null,
+    playtimeAvg:          g.playtime           ?? null,   // avg hours from RAWG community
+    screenshotsCount:     g.screenshots_count  ?? 0,
+    addedByStatus:        g.added_by_status    ?? null,
+
+    // ── Flags ─────────────────────────────────────────────────────────────────
+    emoji:                '🎮',
+    _rawg:                true,
+  };
+}
+
+// ─── Category → RAWG param mapping ───────────────────────────────────────────
+
 const CATEGORY_PARAMS = {
   'horror':     { tags: 'horror' },
   'rpg':        { genres: 'role-playing-games-rpg' },
@@ -87,65 +179,37 @@ const CATEGORY_PARAMS = {
   'stealth':    { tags: 'stealth' },
 };
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ─── Public API — list endpoints ──────────────────────────────────────────────
 
-/**
- * Search games by name.
- * GET /games?search=QUERY&page_size=N
- */
 export const searchGames = async (query, count = 12) => {
   const { data } = await rawg.get('/games', {
-    params: {
-      search:    query,
-      page_size: count,
-    },
+    params: { search: query, page_size: count },
   });
   return (data.results ?? []).map(normalizeGame);
 };
 
-/**
- * Recently-added / trending games.
- * GET /games?ordering=-added&page_size=N
- */
 export const getTrendingGames = async (count = 12) => {
   const { data } = await rawg.get('/games', {
-    params: {
-      ordering:  '-added',
-      page_size: count,
-    },
+    params: { ordering: '-added', page_size: count },
   });
   return (data.results ?? []).map(normalizeGame);
 };
 
-/**
- * Top-rated games.
- * GET /games?ordering=-rating&page_size=N
- */
 export const getTopRatedGames = async (count = 12) => {
   const { data } = await rawg.get('/games', {
-    params: {
-      ordering:  '-rating',
-      page_size: count,
-    },
+    params: { ordering: '-rating', page_size: count },
   });
   return (data.results ?? []).map(normalizeGame);
 };
 
-// ─── Ordering map ─────────────────────────────────────────────────────────────
-
 const ORDER_MAP = {
-  relevance:  '-rating',   // best proxy for relevance when no text query
+  relevance:  '-rating',
   rating:     '-rating',
   popularity: '-added',
   released:   '-released',
   metacritic: '-metacritic',
 };
 
-/**
- * Games matching ALL of the given category IDs (intersection / AND logic).
- * Accepts optional ordering and platform to pass straight to RAWG.
- * GET /games?genres=...&tags=...&ordering=...&platforms=...&page_size=40
- */
 export const getGamesByMultiCategory = async (categoryIds, {
   count     = 40,
   ordering  = 'relevance',
@@ -153,7 +217,7 @@ export const getGamesByMultiCategory = async (categoryIds, {
   extraTags = [],
 } = {}) => {
   const genreValues = [];
-  const tagValues   = [...extraTags]; // seed with any directly-requested tag slugs
+  const tagValues   = [...extraTags];
 
   for (const id of categoryIds) {
     const p = CATEGORY_PARAMS[id];
@@ -162,10 +226,7 @@ export const getGamesByMultiCategory = async (categoryIds, {
     if (p.tags)   tagValues.push(p.tags);
   }
 
-  const params = {
-    ordering:  ORDER_MAP[ordering] ?? '-rating',
-    page_size: count,
-  };
+  const params = { ordering: ORDER_MAP[ordering] ?? '-rating', page_size: count };
   if (genreValues.length) params.genres    = genreValues.join(',');
   if (tagValues.length)   params.tags      = tagValues.join(',');
   if (platform)           params.platforms = platform;
@@ -174,24 +235,57 @@ export const getGamesByMultiCategory = async (categoryIds, {
   return (data.results ?? []).map(normalizeGame);
 };
 
-/**
- * Games by category (genre or tag).
- * GET /games?genres=...&ordering=-rating&page_size=20
- */
 export const getGamesByCategory = async (categoryId, count = 20) => {
   const extra = CATEGORY_PARAMS[categoryId];
-  if (!extra) {
-    // Unknown category — fall back to top-rated
-    return getTopRatedGames(count);
-  }
+  if (!extra) return getTopRatedGames(count);
 
   const { data } = await rawg.get('/games', {
-    params: {
-      ...extra,
-      ordering:  '-rating',
-      page_size: count,
-    },
+    params: { ...extra, ordering: '-rating', page_size: count },
   });
-
   return (data.results ?? []).map(normalizeGame);
+};
+
+// ─── Public API — detail endpoints ───────────────────────────────────────────
+
+/**
+ * Full game detail by RAWG numeric ID.
+ * GET /games/{id}
+ */
+export const getGameDetails = async (rawgId) => {
+  const { data } = await rawg.get(`/games/${rawgId}`);
+  return normalizeGameDetail(data);
+};
+
+/**
+ * Screenshots for a game.
+ * GET /games/{id}/screenshots
+ * Returns array of { id, image, width, height }
+ */
+export const getGameScreenshots = async (rawgId) => {
+  try {
+    const { data } = await rawg.get(`/games/${rawgId}/screenshots`);
+    return (data.results ?? []).map(s => ({
+      id:     s.id,
+      image:  s.image,
+      width:  s.width,
+      height: s.height,
+    }));
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * Games in the same series (sequels, prequels, remakes).
+ * GET /games/{id}/game-series
+ */
+export const getGameSeries = async (rawgId, count = 10) => {
+  try {
+    const { data } = await rawg.get(`/games/${rawgId}/game-series`, {
+      params: { page_size: count },
+    });
+    return (data.results ?? []).map(normalizeGame);
+  } catch {
+    return [];
+  }
 };
