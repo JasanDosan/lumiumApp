@@ -65,7 +65,7 @@ export default function App() {
 
           {/* Legacy redirects — keep external links / bookmarks working */}
           <Route path="/favorites"       element={<Navigate to="/library"  replace />} />
-          <Route path="/recommendations" element={<Navigate to="/"         replace />} />
+          <Route path="/recommendations" element={<Navigate to="/for-you"   replace />} />
           <Route path="/movies"          element={<Navigate to="/discover" replace />} />
 
           {/* Protected legacy — redirect after auth check */}

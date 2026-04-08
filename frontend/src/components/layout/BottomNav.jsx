@@ -3,9 +3,10 @@ import { useAuthStore } from '@/features/auth/authStore';
 
 const TABS = [
   {
-    to:    '/',
-    end:   true,
-    label: 'For You',
+    to:        '/for-you',
+    end:       false,
+    label:     'For You',
+    protected: true,
     icon:  (active) => (
       <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor"
         strokeWidth={active ? 0 : 1.75} viewBox="0 0 24 24">

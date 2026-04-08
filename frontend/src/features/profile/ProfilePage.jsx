@@ -251,7 +251,7 @@ export default function ProfilePage() {
               <>
                 <p className="text-3xl font-semibold text-ink tabular-nums">{recs.length || '—'}</p>
                 <Link
-                  to="/recommendations"
+                  to="/for-you"
                   className="text-xs text-ink-light hover:text-ink transition-colors mt-0.5 inline-block"
                 >
                   View all →
@@ -282,7 +282,7 @@ export default function ProfilePage() {
 
           {/* Recommendations */}
           {(recs.length > 0 || recsLoading) && (
-            <SectionWrapper label="For you" title="Recommended" seeAllTo="/recommendations">
+            <SectionWrapper label="For you" title="Recommended" seeAllTo="/for-you">
               <MovieRow movies={recs} isLoading={recsLoading} showScore />
             </SectionWrapper>
           )}

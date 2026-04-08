@@ -322,7 +322,7 @@ export default function MovieDetailPage() {
         </Link>
       )}
       <Link
-        to="/recommendations"
+        to="/for-you"
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold bg-white/15 text-white border border-white/25 hover:bg-white/25 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

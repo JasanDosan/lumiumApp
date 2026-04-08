@@ -343,7 +343,9 @@ export default function Header() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-6">
-            <NavLink to="/" end className={navLinkClass}>For You</NavLink>
+            {isAuthenticated && (
+              <NavLink to="/for-you" className={navLinkClass}>For You</NavLink>
+            )}
             <NavLink to="/discover" className={navLinkClass}>Discover</NavLink>
             {isAuthenticated && (
               <NavLink to="/library" className={navLinkClass}>Library</NavLink>
