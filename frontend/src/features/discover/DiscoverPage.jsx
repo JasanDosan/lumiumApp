@@ -186,10 +186,16 @@ function useDiscoverSearch(query, tab) {
         })
         .catch(() => {
           if (!cancelled) setState(s => ({ ...s, games: [] }));
+        })
+        .finally(() => {
+          // Clear loading only when there is no TMDB fetch in flight
+          if (!wantMovies && !wantSeries && !cancelled)
+            setState(s => ({ ...s, loading: false }));
         });
     }
 
     let tmdbTimer = null;
+    let fallbackTimer = null;
     if (wantMovies || wantSeries) {
       tmdbTimer = setTimeout(() => {
         mediaDiscoveryService.searchMulti(query)
@@ -206,15 +212,17 @@ function useDiscoverSearch(query, tab) {
             if (!cancelled) setState(s => ({ ...s, loading: false, error: 'Search failed. Try again.' }));
           });
       }, 300);
-    } else {
-      setTimeout(() => {
+    } else if (!wantGames) {
+      // No fetches at all — clear loading immediately
+      fallbackTimer = setTimeout(() => {
         if (!cancelled) setState(s => ({ ...s, loading: false }));
       }, 50);
     }
 
     return () => {
       cancelled = true;
-      if (tmdbTimer) clearTimeout(tmdbTimer);
+      if (tmdbTimer)    clearTimeout(tmdbTimer);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
     };
   }, [query, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -207,6 +207,7 @@ const normalizeTV = (show) => ({
   posterPath:  show.poster_path,
   posterUrl:   buildImageUrl(show.poster_path),
   backdropUrl: buildImageUrl(show.backdrop_path, 'w1280'),
+  image:       buildImageUrl(show.poster_path),
   rating:      show.vote_average,
   voteCount:   show.vote_count,
   popularity:  show.popularity,
@@ -275,6 +276,8 @@ export const discoverTV = async ({
   genres,
   sort_by = 'popularity.desc',
   rating_gte,
+  year_gte,
+  year_lte,
 } = {}) => {
   const params = {
     page,
@@ -283,6 +286,8 @@ export const discoverTV = async ({
     include_adult: false,
     ...(genres?.length && { with_genres: Array.isArray(genres) ? genres.join(',') : genres }),
     ...(rating_gte && { 'vote_average.gte': rating_gte }),
+    ...(year_gte && { 'first_air_date.gte': year_gte }),
+    ...(year_lte && { 'first_air_date.lte': year_lte }),
   };
   const { data } = await tmdb.get('/discover/tv', { params });
   return {
