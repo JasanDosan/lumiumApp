@@ -124,6 +124,26 @@ export const getMovieTmdbRecs = async (req, res, next) => {
   }
 };
 
+export const getTopRated = async (req, res, next) => {
+  try {
+    const { page = 1 } = req.query;
+    const movies = await tmdb.getTopRatedMovies(Number(page));
+    res.json({ results: movies });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUpcoming = async (req, res, next) => {
+  try {
+    const { page = 1 } = req.query;
+    const movies = await tmdb.getUpcomingMovies(Number(page));
+    res.json({ results: movies });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getMovieCollection = async (req, res, next) => {
   try {
     const { id } = req.params;

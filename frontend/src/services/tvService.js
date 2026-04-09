@@ -7,6 +7,12 @@ export const tvService = {
   getPopular: (page = 1) =>
     api.get('/tv/popular', { params: { page } }).then(r => r.data),
 
+  getTopRated: (page = 1) =>
+    api.get('/tv/top-rated', { params: { page } }).then(r => r.data),
+
+  getOnAir: (page = 1) =>
+    api.get('/tv/on-air', { params: { page } }).then(r => r.data),
+
   getDetails: (id) =>
     api.get(`/tv/${id}`).then(r => r.data),
 

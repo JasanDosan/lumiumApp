@@ -5,6 +5,8 @@ import {
   searchMulti,
   getTrending,
   getPopular,
+  getTopRated,
+  getUpcoming,
   getDetails,
   getSimilar,
   getRecommendations,
@@ -22,6 +24,8 @@ router.get('/search', search);
 router.get('/search/multi', searchMulti);
 router.get('/trending', getTrending);
 router.get('/popular', getPopular);
+router.get('/top-rated', getTopRated);
+router.get('/upcoming', getUpcoming);
 router.get('/genres', getGenres);
 router.get('/discover', discover);
 router.get('/recommendations/me', protect, getRecommendations);

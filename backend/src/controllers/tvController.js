@@ -38,6 +38,26 @@ export const getPopular = async (req, res, next) => {
   }
 };
 
+export const getTopRated = async (req, res, next) => {
+  try {
+    const { page = 1 } = req.query;
+    const shows = await tmdb.getTopRatedTV(Number(page));
+    res.json({ results: shows });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getOnAir = async (req, res, next) => {
+  try {
+    const { page = 1 } = req.query;
+    const shows = await tmdb.getOnAirTV(Number(page));
+    res.json({ results: shows });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const discoverTV = async (req, res, next) => {
   try {
     const { page = 1, genres, sort_by, rating_gte } = req.query;

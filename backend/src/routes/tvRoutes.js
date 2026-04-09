@@ -1,12 +1,14 @@
 import { Router } from 'express';
-import { getTrending, getPopular, discoverTV, getDetails, getSimilar } from '../controllers/tvController.js';
+import { getTrending, getPopular, getTopRated, getOnAir, discoverTV, getDetails, getSimilar } from '../controllers/tvController.js';
 
 const router = Router();
 
 // Static paths must come before /:id param routes
-router.get('/trending', getTrending);
-router.get('/popular',  getPopular);
-router.get('/discover', discoverTV);
+router.get('/trending',  getTrending);
+router.get('/popular',   getPopular);
+router.get('/top-rated', getTopRated);
+router.get('/on-air',    getOnAir);
+router.get('/discover',  discoverTV);
 
 // Specific sub-path before generic /:id
 router.get('/:id/similar', getSimilar);

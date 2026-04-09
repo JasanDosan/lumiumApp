@@ -136,6 +136,16 @@ export const getPopularMovies = async (page = 1) => {
   return data.results.map(normalizeMovie);
 };
 
+export const getTopRatedMovies = async (page = 1) => {
+  const { data } = await tmdb.get('/movie/top_rated', { params: { page } });
+  return data.results.map(normalizeMovie);
+};
+
+export const getUpcomingMovies = async (page = 1) => {
+  const { data } = await tmdb.get('/movie/upcoming', { params: { page } });
+  return data.results.map(normalizeMovie);
+};
+
 export const getGenres = async () => {
   const { data } = await tmdb.get('/genre/movie/list');
   return data.genres;
@@ -247,6 +257,16 @@ export const getTrendingTV = async (timeWindow = 'week') => {
 
 export const getPopularTV = async (page = 1) => {
   const { data } = await tmdb.get('/tv/popular', { params: { page } });
+  return data.results.map(normalizeTV);
+};
+
+export const getTopRatedTV = async (page = 1) => {
+  const { data } = await tmdb.get('/tv/top_rated', { params: { page } });
+  return data.results.map(normalizeTV);
+};
+
+export const getOnAirTV = async (page = 1) => {
+  const { data } = await tmdb.get('/tv/on_the_air', { params: { page } });
   return data.results.map(normalizeTV);
 };
 

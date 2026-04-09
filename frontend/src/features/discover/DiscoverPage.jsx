@@ -1,20 +1,20 @@
 /**
  * DiscoverPage — cross-media exploration hub.
  *
- * Two modes:
- *   Browse  (empty query)  → trending rows per media type, filterable
- *   Search  (active query) → grouped result sections per type with save buttons
+ * Three modes:
+ *   Rich browse  (no search, no filters) → 10+ curated sections per tab
+ *   Filtered     (filters active)        → single filtered section per type
+ *   Search       (active query)          → grouped result sections per type
  *
  * Tabs: All | Games | Movies | Series
  */
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { rawgService }           from '@/services/rawgService';
 import { mediaDiscoveryService } from '@/services/movieService';
 import { tvService }             from '@/services/tvService';
 import { useUserLibraryStore }   from '@/features/library/libraryStore';
 import { GAME_CATALOG }          from '@/data/gameMovieTags';
-import ExpandableRow             from '@/components/ui/ExpandableRow';
 import UnifiedCard               from '@/components/ui/UnifiedCard';
 import DragRow                   from '@/components/ui/DragRow';
 import ContentBand               from '@/components/ui/ContentBand';
@@ -91,6 +91,62 @@ const PLATFORM_OPTIONS = [
 
 const PLATFORM_IDS = { pc: 4, playstation: 187, xbox: 186, nintendo: 7 };
 
+// ─── Rich-browse section configs (stable module-level references) ──────────────
+// Each section knows its fetch function, media type, and display title.
+// BrowseSection captures these via useRef on mount so they never cause re-fetches.
+
+const GAME_SECTIONS = [
+  { id: 'g-trending',   title: 'Trending Now',       type: 'game', fetch: () => rawgService.getTrending(16, { ordering: '-added' }) },
+  { id: 'g-top-rated',  title: 'Top Rated',          type: 'game', fetch: () => rawgService.getTopRated(16, { ordering: '-rating' }) },
+  { id: 'g-new',        title: 'New Releases',        type: 'game', fetch: () => rawgService.getTrending(16, { ordering: '-released' }) },
+  { id: 'g-metacritic', title: 'Best by Metacritic',  type: 'game', fetch: () => rawgService.getTopRated(16, { ordering: '-metacritic' }) },
+  { id: 'g-rpg',        title: 'Role-Playing Games',  type: 'game', fetch: () => rawgService.getByCategory('rpg', 16) },
+  { id: 'g-action',     title: 'Action',              type: 'game', fetch: () => rawgService.getByCategory('action', 16) },
+  { id: 'g-horror',     title: 'Horror',              type: 'game', fetch: () => rawgService.getByCategory('horror', 16) },
+  { id: 'g-openworld',  title: 'Open World',          type: 'game', fetch: () => rawgService.getByCategory('open-world', 16) },
+  { id: 'g-story',      title: 'Story Rich',          type: 'game', fetch: () => rawgService.getByCategory('story', 16) },
+  { id: 'g-adventure',  title: 'Adventure',           type: 'game', fetch: () => rawgService.getByCategory('adventure', 16) },
+];
+
+const MOVIE_SECTIONS = [
+  { id: 'm-trending',  title: 'Trending This Week',  type: 'movie', fetch: () => mediaDiscoveryService.getTrending() },
+  { id: 'm-top-rated', title: 'Top Rated',           type: 'movie', fetch: () => mediaDiscoveryService.getTopRated() },
+  { id: 'm-popular',   title: 'Popular Now',          type: 'movie', fetch: () => mediaDiscoveryService.getPopular() },
+  { id: 'm-upcoming',  title: 'Coming Soon',          type: 'movie', fetch: () => mediaDiscoveryService.getUpcoming() },
+  { id: 'm-gems',      title: 'Hidden Gems',          type: 'movie', fetch: () => mediaDiscoveryService.discover({ sort_by: 'vote_average.desc', rating_gte: 7.5 }) },
+  { id: 'm-action',    title: 'Action & Adventure',   type: 'movie', fetch: () => mediaDiscoveryService.discover({ genres: [28, 12] }) },
+  { id: 'm-scifi',     title: 'Science Fiction',      type: 'movie', fetch: () => mediaDiscoveryService.discover({ genres: [878] }) },
+  { id: 'm-horror',    title: 'Horror',               type: 'movie', fetch: () => mediaDiscoveryService.discover({ genres: [27] }) },
+  { id: 'm-drama',     title: 'Drama',                type: 'movie', fetch: () => mediaDiscoveryService.discover({ genres: [18] }) },
+  { id: 'm-animation', title: 'Animation',            type: 'movie', fetch: () => mediaDiscoveryService.discover({ genres: [16] }) },
+];
+
+const SERIES_SECTIONS = [
+  { id: 's-trending',  title: 'Trending This Week',  type: 'series', fetch: () => tvService.getTrending() },
+  { id: 's-top-rated', title: 'Top Rated',           type: 'series', fetch: () => tvService.getTopRated() },
+  { id: 's-popular',   title: 'Popular Now',          type: 'series', fetch: () => tvService.getPopular() },
+  { id: 's-on-air',    title: 'Airing Now',           type: 'series', fetch: () => tvService.getOnAir() },
+  { id: 's-gems',      title: 'Hidden Gems',          type: 'series', fetch: () => tvService.discover({ sort_by: 'vote_average.desc', rating_gte: 8 }) },
+  { id: 's-drama',     title: 'Drama',                type: 'series', fetch: () => tvService.discover({ genres: [18] }) },
+  { id: 's-scifi',     title: 'Sci-Fi & Fantasy',     type: 'series', fetch: () => tvService.discover({ genres: [10765] }) },
+  { id: 's-crime',     title: 'Crime',                type: 'series', fetch: () => tvService.discover({ genres: [80] }) },
+  { id: 's-thriller',  title: 'Mystery & Thriller',   type: 'series', fetch: () => tvService.discover({ genres: [9648] }) },
+  { id: 's-animation', title: 'Animation',            type: 'series', fetch: () => tvService.discover({ genres: [16] }) },
+];
+
+// "All" tab shows the top 2–3 from each type
+const ALL_SECTIONS = [
+  GAME_SECTIONS[0],    // Trending Games
+  MOVIE_SECTIONS[0],   // Trending Movies
+  SERIES_SECTIONS[0],  // Trending Series
+  GAME_SECTIONS[1],    // Top Rated Games
+  MOVIE_SECTIONS[2],   // Popular Movies
+  SERIES_SECTIONS[2],  // Popular Series
+  GAME_SECTIONS[2],    // New Game Releases
+  MOVIE_SECTIONS[1],   // Top Rated Movies
+  SERIES_SECTIONS[1],  // Top Rated Series
+];
+
 // ─── Year range helpers ───────────────────────────────────────────────────────
 
 function getYearParams(yearRange) {
@@ -165,7 +221,7 @@ function useDiscoverSearch(query, tab) {
   return state;
 }
 
-// ─── useDiscoverTrending ──────────────────────────────────────────────────────
+// ─── useDiscoverTrending (filtered browse mode only) ──────────────────────────
 
 function useDiscoverTrending(
   tab, genreId, gameSortMode, sortMode,
@@ -179,7 +235,6 @@ function useDiscoverTrending(
   const [series,        setSeries]        = useState([]);
   const [seriesLoading, setSeriesLoading] = useState(true);
 
-  // Stable string key representing all filters (excluding page)
   const filterKey = `${tab}|${genreId}|${gameSortMode}|${sortMode}|${ratingFloor}|${yearRange}|${platformFilter}`;
   const prevFilterKey = useRef(null);
 
@@ -190,7 +245,6 @@ function useDiscoverTrending(
     const isFilterChange = filterKey !== prevFilterKey.current;
     prevFilterKey.current = filterKey;
 
-    // On filter change, wipe existing data immediately
     if (isFilterChange) {
       setGames([]);
       setMovies([]);
@@ -203,17 +257,15 @@ function useDiscoverTrending(
     const showMovies = tab === 'all' || tab === 'movies';
     const showSeries = tab === 'all' || tab === 'series';
 
-    const gameCount = page === 1 ? 24 : 12;
+    const gameCount  = page === 1 ? 24 : 12;
     const mediaCount = 20;
 
-    // ── Games ─────────────────────────────────────────────────────────────────
     if (showGames) {
       setGamesLoading(true);
       const platformId = platformFilter ? PLATFORM_IDS[platformFilter] : null;
 
       let gamePromise;
       if (tab === 'games' && genreId) {
-        // Genre filter on games tab → use getByCategory (no page support needed, category results are small)
         gamePromise = rawgService.getByCategory(genreId, gameCount);
       } else if (gameSortMode === 'top-rated') {
         gamePromise = rawgService.getTopRated(gameCount, { ordering: '-rating', platform: platformId, page });
@@ -243,12 +295,10 @@ function useDiscoverTrending(
               .slice(0, 24);
             setGames(TOP_GAMES);
           }
-          // page > 1 failure: keep existing results — no append, no duplicates
         })
         .finally(() => { if (!cancelled) setGamesLoading(false); });
     }
 
-    // ── Movies ────────────────────────────────────────────────────────────────
     if (showMovies) {
       const sortByMap = {
         'trending':  'popularity.desc',
@@ -283,7 +333,6 @@ function useDiscoverTrending(
       timers.push(tMovies);
     }
 
-    // ── Series ────────────────────────────────────────────────────────────────
     if (showSeries) {
       const sortByMap = {
         'trending':  'popularity.desc',
@@ -329,7 +378,44 @@ function useDiscoverTrending(
   return { games, gamesLoading, movies, moviesLoading, series, seriesLoading };
 }
 
-// ─── Skeletons ────────────────────────────────────────────────────────────────
+// ─── MediaCard: narrow per-item Zustand selector ─────────────────────────────
+// Each card subscribes only to its own saved state. This is the fix for the
+// save button not reflecting live library state after toggling.
+
+function MediaCard({ item, type }) {
+  const rawGameId = String(item.id ?? item.rawId ?? '');
+  const tmdbNum   = Number(item.tmdbId ?? item.id);
+  const itemId =
+    type === 'game'   ? `game_${rawGameId}` :
+    type === 'movie'  ? `movie_${tmdbNum}`  :
+                        `series_${tmdbNum}`;
+
+  // Narrow selector — re-renders only when this specific item's saved state changes
+  const isSaved      = useUserLibraryStore(state => state.library.some(i => i.id === itemId));
+  const toggleGame   = useUserLibraryStore(state => state.toggleGame);
+  const toggleMovie  = useUserLibraryStore(state => state.toggleMovie);
+  const toggleSeries = useUserLibraryStore(state => state.toggleSeries);
+
+  const handleSave = useCallback(() => {
+    const label    = item.title ?? item.name ?? '';
+    const wasSaved = isSaved;
+    if (type === 'game')        toggleGame(item);
+    else if (type === 'movie')  toggleMovie(item);
+    else                        toggleSeries(item);
+    toast(wasSaved ? 'Removed from library' : `Saved — ${label}`);
+  }, [item, type, isSaved, toggleGame, toggleMovie, toggleSeries]);
+
+  return (
+    <UnifiedCard
+      item={item}
+      type={type}
+      isInLibrary={isSaved}
+      onAddToLibrary={handleSave}
+    />
+  );
+}
+
+// ─── Skeleton rows ────────────────────────────────────────────────────────────
 
 function RowSkeleton({ count = 6 }) {
   return (
@@ -356,60 +442,72 @@ function GridSkeleton({ count = 8 }) {
   );
 }
 
-// ─── ResultGrid — search mode ─────────────────────────────────────────────────
+// ─── MediaRow: DragRow of MediaCards ─────────────────────────────────────────
 
-function ResultGrid({ items, type }) {
-  const {
-    toggleGame,   hasGame,
-    toggleMovie,  hasMovie,
-    toggleSeries, hasSeries,
-  } = useUserLibraryStore();
-
-  const getProps = useCallback((item) => {
-    const label = item.title ?? item.name ?? '';
-    if (type === 'game') {
-      const saved = hasGame(item.id ?? item.rawId);
-      return {
-        isInLibrary: saved,
-        onAddToLibrary: () => {
-          toggleGame(item);
-          toast(saved ? 'Removed from library' : `Saved — ${label}`);
-        },
-      };
-    }
-    if (type === 'movie') {
-      const saved = hasMovie(item.tmdbId ?? item.id);
-      return {
-        isInLibrary: saved,
-        onAddToLibrary: () => {
-          toggleMovie(item);
-          toast(saved ? 'Removed from library' : `Saved — ${label}`);
-        },
-      };
-    }
-    const saved = hasSeries(item.tmdbId ?? item.id);
-    return {
-      isInLibrary: saved,
-      onAddToLibrary: () => {
-        toggleSeries(item);
-        toast(saved ? 'Removed from library' : `Saved — ${label}`);
-      },
-    };
-  }, [type, hasGame, toggleGame, hasMovie, toggleMovie, hasSeries, toggleSeries]);
-
+function MediaRow({ items, type, cardWidth = 'w-52 sm:w-60', gap = 'gap-3' }) {
   if (!items.length) return null;
+  return (
+    <DragRow gap={gap}>
+      {items.map(item => (
+        <div key={item.tmdbId ?? item.id} className={`shrink-0 ${cardWidth}`}>
+          <MediaCard item={item} type={type} />
+        </div>
+      ))}
+    </DragRow>
+  );
+}
+
+// ─── BrowseSection: self-fetching curated section ─────────────────────────────
+
+function BrowseSection({ title, fetchFn, type, delay = 0, zone = 'canvas' }) {
+  const [items,   setItems]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const fetchedRef = useRef(false);
+  const fnRef      = useRef(fetchFn); // capture stable ref on mount
+
+  useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    let cancelled = false;
+
+    const timer = setTimeout(() => {
+      fnRef.current()
+        .then(data => {
+          if (cancelled) return;
+          setItems(Array.isArray(data) ? data : (data.results ?? []));
+          setLoading(false);
+        })
+        .catch(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, delay);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!loading && items.length === 0) return null;
 
   return (
+    <ContentBand zone={zone} size="lg" topBorder>
+      <h2 className="headline-md text-ink mb-8">{title}</h2>
+      {loading ? <RowSkeleton /> : <MediaRow items={items} type={type} />}
+    </ContentBand>
+  );
+}
+
+// ─── ResultGrid — search results ──────────────────────────────────────────────
+
+function ResultGrid({ items, type }) {
+  if (!items.length) return null;
+  return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      {items.map(item => {
-        const key = `${type}-${item.tmdbId ?? item.id}`;
-        const { isInLibrary, onAddToLibrary } = getProps(item);
-        return (
-          <div key={key}>
-            <UnifiedCard item={item} type={type} isInLibrary={isInLibrary} onAddToLibrary={onAddToLibrary} />
-          </div>
-        );
-      })}
+      {items.map(item => (
+        <MediaCard
+          key={`${type}-${item.tmdbId ?? item.id}`}
+          item={item}
+          type={type}
+        />
+      ))}
     </div>
   );
 }
@@ -466,7 +564,6 @@ function FilterBar({
       <div className="flex flex-col gap-5">
 
         <div className="flex flex-wrap gap-6 items-start">
-          {/* Sort */}
           <div className="shrink-0">
             <p className="eyebrow text-ink-light mb-3">Sort</p>
             <FilterChips
@@ -479,7 +576,6 @@ function FilterBar({
             />
           </div>
 
-          {/* Genre */}
           <div className="flex-1 min-w-0">
             <p className="eyebrow text-ink-light mb-3">Genre</p>
             <FilterChips
@@ -492,7 +588,6 @@ function FilterBar({
         </div>
 
         <div className="flex flex-wrap gap-6 items-start">
-          {/* Platform — games only */}
           {isGames && (
             <div className="shrink-0">
               <p className="eyebrow text-ink-light mb-3">Platform</p>
@@ -505,7 +600,6 @@ function FilterBar({
             </div>
           )}
 
-          {/* Rating — movies / series / all */}
           {!isGames && (
             <div className="shrink-0">
               <p className="eyebrow text-ink-light mb-3">Rating</p>
@@ -518,7 +612,6 @@ function FilterBar({
             </div>
           )}
 
-          {/* Era — movies and series only (not all tab) */}
           {(isMovies || isSeries) && (
             <div className="shrink-0">
               <p className="eyebrow text-ink-light mb-3">Era</p>
@@ -557,9 +650,7 @@ function ViewToggle({ viewMode, onToggle }) {
       <button
         onClick={() => onToggle('row')}
         aria-label="Row view"
-        className={`${btnBase} ${viewMode === 'row'
-          ? 'bg-surface-high text-ink'
-          : 'text-ink-light hover:text-ink'}`}
+        className={`${btnBase} ${viewMode === 'row' ? 'bg-surface-high text-ink' : 'text-ink-light hover:text-ink'}`}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
@@ -568,9 +659,7 @@ function ViewToggle({ viewMode, onToggle }) {
       <button
         onClick={() => onToggle('grid')}
         aria-label="Grid view"
-        className={`${btnBase} ${viewMode === 'grid'
-          ? 'bg-surface-high text-ink'
-          : 'text-ink-light hover:text-ink'}`}
+        className={`${btnBase} ${viewMode === 'grid' ? 'bg-surface-high text-ink' : 'text-ink-light hover:text-ink'}`}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -605,6 +694,121 @@ function LoadMoreButton({ onClick, loading }) {
         )}
       </button>
     </div>
+  );
+}
+
+// ─── FilteredSection: filtered single-section browse ─────────────────────────
+// Renders when the user has active filters. Uses useDiscoverTrending internally
+// so the hook only fires when this component is mounted (i.e., filters are on).
+
+function FilteredSection({
+  tab, genreFilter, gameSortMode, sortMode,
+  ratingFloor, yearRange, platformFilter,
+  page, hasMore, onHasMoreChange, onLoadMore, viewMode, onViewModeChange,
+}) {
+  const {
+    games, gamesLoading, movies, moviesLoading, series, seriesLoading,
+  } = useDiscoverTrending(
+    tab, genreFilter, gameSortMode, sortMode,
+    ratingFloor, yearRange, platformFilter, page, onHasMoreChange,
+  );
+
+  const showGames  = tab === 'all' || tab === 'games';
+  const showMovies = tab === 'all' || tab === 'movies';
+  const showSeries = tab === 'all' || tab === 'series';
+
+  const activeGenreLabel = (tab === 'games' ? GAME_GENRES : TMDB_GENRES)
+    .find(g => g.id === genreFilter)?.label ?? '';
+
+  const gameSectionLabel =
+    gameSortMode === 'top-rated'  ? 'Top Rated Games'    :
+    gameSortMode === 'newest'     ? 'New Releases'        :
+    gameSortMode === 'metacritic' ? 'Best by Metacritic'  :
+    genreFilter   ? `${activeGenreLabel} Games`           : 'Trending Games';
+
+  const movieSectionLabel =
+    sortMode === 'top-rated' ? 'Top Rated Movies'     :
+    sortMode === 'newest'    ? 'New Movie Releases'    :
+    genreFilter && tab !== 'series' ? `${activeGenreLabel} Movies` : 'Popular Movies';
+
+  const seriesSectionLabel =
+    sortMode === 'top-rated' ? 'Top Rated Series'     :
+    sortMode === 'newest'    ? 'New Series'            :
+    genreFilter ? `${activeGenreLabel} Series`         : 'Trending Series';
+
+  const renderContent = (items, loading, type) => (
+    loading && items.length === 0 ? (
+      <RowSkeleton />
+    ) : viewMode === 'grid' ? (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        {items.map(item => (
+          <MediaCard key={`${type}-${item.tmdbId ?? item.id}`} item={item} type={type} />
+        ))}
+      </div>
+    ) : (
+      <MediaRow items={items} type={type} />
+    )
+  );
+
+  return (
+    <>
+      {showGames && (
+        <ContentBand zone="canvas" size="lg" topBorder>
+          <div className="flex items-start gap-4 mb-10">
+            <div className="flex-1">
+              <p className="eyebrow text-accent mb-5">Games</p>
+              <h2 className="headline-lg text-ink">{gameSectionLabel}</h2>
+            </div>
+            <ViewToggle viewMode={viewMode} onToggle={onViewModeChange} />
+          </div>
+          {renderContent(games, gamesLoading, 'game')}
+          {hasMore.games && (
+            <LoadMoreButton
+              onClick={onLoadMore}
+              loading={gamesLoading && games.length > 0}
+            />
+          )}
+        </ContentBand>
+      )}
+
+      {showMovies && (
+        <ContentBand zone="surface" size="lg" topBorder>
+          <div className="flex items-start gap-4 mb-10">
+            <div className="flex-1">
+              <p className="eyebrow text-amber-400 mb-5">Films</p>
+              <h2 className="headline-lg text-ink">{movieSectionLabel}</h2>
+            </div>
+            <ViewToggle viewMode={viewMode} onToggle={onViewModeChange} />
+          </div>
+          {renderContent(movies, moviesLoading, 'movie')}
+          {hasMore.movies && (
+            <LoadMoreButton
+              onClick={onLoadMore}
+              loading={moviesLoading && movies.length > 0}
+            />
+          )}
+        </ContentBand>
+      )}
+
+      {showSeries && (
+        <ContentBand zone="canvas" size="lg" topBorder>
+          <div className="flex items-start gap-4 mb-10">
+            <div className="flex-1">
+              <p className="eyebrow text-violet-400 mb-5">Series</p>
+              <h2 className="headline-lg text-ink">{seriesSectionLabel}</h2>
+            </div>
+            <ViewToggle viewMode={viewMode} onToggle={onViewModeChange} />
+          </div>
+          {renderContent(series, seriesLoading, 'series')}
+          {hasMore.series && (
+            <LoadMoreButton
+              onClick={onLoadMore}
+              loading={seriesLoading && series.length > 0}
+            />
+          )}
+        </ContentBand>
+      )}
+    </>
   );
 }
 
@@ -674,49 +878,16 @@ export default function DiscoverPage() {
 
   const isSearchActive = debouncedQuery.length > 0;
 
-  // Callback for hook to update hasMore
-  const handleHasMoreChange = useCallback((type, value) => {
-    setHasMore(prev => ({ ...prev, [type]: value }));
-  }, []);
-
-  // ── Hooks ──────────────────────────────────────────────────────────────────
-  const {
-    games: searchGames, movies: searchMovies, series: searchSeries,
-    loading: searchLoading, error: searchError,
-  } = useDiscoverSearch(debouncedQuery, activeTab);
-
-  const {
-    games: trendGames,  gamesLoading,
-    movies: trendMovies, moviesLoading,
-    series: trendSeries, seriesLoading,
-  } = useDiscoverTrending(
-    activeTab, genreFilter, gameSortMode, sortMode,
-    ratingFloor, yearRange, platformFilter,
-    page, handleHasMoreChange,
-  );
-
-  const {
-    toggleGame, hasGame, toggleMovie, hasMovie, toggleSeries, hasSeries,
-  } = useUserLibraryStore();
-
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const resultCounts = useMemo(() => ({
-    games:  searchGames.length,
-    movies: searchMovies.length,
-    series: searchSeries.length,
-    all:    searchGames.length + searchMovies.length + searchSeries.length,
-  }), [searchGames.length, searchMovies.length, searchSeries.length]);
-
-  const hasAnyResult   = resultCounts.all > 0;
-  const showGames      = activeTab === 'all' || activeTab === 'games';
-  const showMovies     = activeTab === 'all' || activeTab === 'movies';
-  const showSeries     = activeTab === 'all' || activeTab === 'series';
-
-  const hasActiveFilters = genreFilter !== null
+  const hasActiveFilters =
+    genreFilter !== null
     || (activeTab === 'games' ? gameSortMode !== 'trending' : sortMode !== 'trending')
     || ratingFloor !== 0
     || yearRange !== null
     || platformFilter !== null;
+
+  const handleHasMoreChange = useCallback((type, value) => {
+    setHasMore(prev => ({ ...prev, [type]: value }));
+  }, []);
 
   const handleResetFilters = useCallback(() => {
     setGenreFilter(null);
@@ -726,29 +897,6 @@ export default function DiscoverPage() {
     setYearRange(null);
     setPlatformFilter(null);
   }, []);
-
-  // ── Library callbacks ──────────────────────────────────────────────────────
-  const gameAddFn = useCallback((item) => {
-    const saved = hasGame(item.id ?? item.rawId);
-    toggleGame(item);
-    toast(saved ? 'Removed from library' : `Saved — ${item.title ?? item.name ?? ''}`);
-  }, [toggleGame, hasGame]);
-
-  const movieAddFn = useCallback((item) => {
-    const saved = hasMovie(item.tmdbId ?? item.id);
-    toggleMovie(item);
-    toast(saved ? 'Removed from library' : `Saved — ${item.title ?? item.name ?? ''}`);
-  }, [toggleMovie, hasMovie]);
-
-  const seriesAddFn = useCallback((item) => {
-    const saved = hasSeries(item.tmdbId ?? item.id);
-    toggleSeries(item);
-    toast(saved ? 'Removed from library' : `Saved — ${item.title ?? item.name ?? ''}`);
-  }, [toggleSeries, hasSeries]);
-
-  const gameCheckFn   = useCallback((item) => hasGame(item.id ?? item.rawId),    [hasGame]);
-  const movieCheckFn  = useCallback((item) => hasMovie(item.tmdbId ?? item.id),  [hasMovie]);
-  const seriesCheckFn = useCallback((item) => hasSeries(item.tmdbId ?? item.id), [hasSeries]);
 
   const handleClearSearch = useCallback(() => {
     setSearchTerm('');
@@ -761,46 +909,31 @@ export default function DiscoverPage() {
     setTimeout(() => setDebouncedQuery(q => q.trim()), 10);
   }, []);
 
-  // ── Section headline labels ────────────────────────────────────────────────
-  const activeGenreLabel = (activeTab === 'games' ? GAME_GENRES : TMDB_GENRES)
-    .find(g => g.id === genreFilter)?.label ?? '';
+  // ── Search hook ────────────────────────────────────────────────────────────
+  const {
+    games: searchGames, movies: searchMovies, series: searchSeries,
+    loading: searchLoading, error: searchError,
+  } = useDiscoverSearch(debouncedQuery, activeTab);
 
-  const gameSectionLabel =
-    gameSortMode === 'top-rated'  ? 'Top Rated Games'  :
-    gameSortMode === 'newest'     ? 'New Releases'      :
-    gameSortMode === 'metacritic' ? 'Best by Metacritic' :
-    genreFilter   ? `${activeGenreLabel} Games`         : 'Trending Games';
+  const resultCounts = {
+    games:  searchGames.length,
+    movies: searchMovies.length,
+    series: searchSeries.length,
+    all:    searchGames.length + searchMovies.length + searchSeries.length,
+  };
+  const hasAnyResult   = resultCounts.all > 0;
+  const showGames      = activeTab === 'all' || activeTab === 'games';
+  const showMovies     = activeTab === 'all' || activeTab === 'movies';
+  const showSeries     = activeTab === 'all' || activeTab === 'series';
 
-  const movieSectionLabel =
-    sortMode === 'top-rated' ? 'Top Rated Movies' :
-    sortMode === 'newest'    ? 'New Movie Releases' :
-    genreFilter && activeTab !== 'series' ? `${activeGenreLabel} Movies` : 'Popular Movies';
-
-  const seriesSectionLabel =
-    sortMode === 'top-rated' ? 'Top Rated Series' :
-    sortMode === 'newest'    ? 'New Series'        :
-    genreFilter ? `${activeGenreLabel} Series`     : 'Trending Series';
-
-  // ── Grid renderer helper ───────────────────────────────────────────────────
-  const renderGrid = (items, type, addFn, checkFn) => (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-      {items.map(item => {
-        const key = `${type}-${item.tmdbId ?? item.id}`;
-        return (
-          <UnifiedCard
-            key={key}
-            item={item}
-            type={type}
-            isInLibrary={checkFn(item)}
-            onAddToLibrary={() => addFn(item)}
-          />
-        );
-      })}
-    </div>
-  );
+  // ── Rich-browse section list ───────────────────────────────────────────────
+  const richSections =
+    activeTab === 'games'  ? GAME_SECTIONS :
+    activeTab === 'movies' ? MOVIE_SECTIONS :
+    activeTab === 'series' ? SERIES_SECTIONS :
+    ALL_SECTIONS;
 
   // ── Render ─────────────────────────────────────────────────────────────────
-
   return (
     <div className="min-h-screen bg-canvas">
 
@@ -954,7 +1087,7 @@ export default function DiscoverPage() {
         {!isSearchActive && (
           <div key={`browse-${activeTab}`} className="animate-fade-in">
 
-            {/* Filter bar */}
+            {/* Filter bar — always visible in browse mode */}
             <FilterBar
               tab={activeTab}
               genreFilter={genreFilter}       setGenreFilter={setGenreFilter}
@@ -967,101 +1100,37 @@ export default function DiscoverPage() {
               onReset={handleResetFilters}
             />
 
-            {/* Games section */}
-            {showGames && (
-              <ContentBand zone="canvas" size="lg" topBorder>
-                <div className="flex items-start gap-4 mb-10">
-                  <div className="flex-1">
-                    <p className="eyebrow text-accent mb-5">Games</p>
-                    <h2 className="headline-lg text-ink">{gameSectionLabel}</h2>
-                  </div>
-                  <ViewToggle viewMode={viewMode} onToggle={setViewMode} />
-                </div>
-                {gamesLoading && trendGames.length === 0 ? (
-                  <RowSkeleton />
-                ) : viewMode === 'grid' ? (
-                  renderGrid(trendGames, 'game', gameAddFn, gameCheckFn)
-                ) : (
-                  <ExpandableRow
-                    items={trendGames.map(g => ({ item: g, type: 'game' }))}
-                    cardWidth="w-52 sm:w-60"
-                    gap="gap-3"
-                    onAddToLibrary={gameAddFn}
-                    libraryCheck={gameCheckFn}
-                  />
-                )}
-                {hasMore.games && (
-                  <LoadMoreButton
-                    onClick={() => setPage(p => p + 1)}
-                    loading={gamesLoading && trendGames.length > 0}
-                  />
-                )}
-              </ContentBand>
+            {/* Filtered mode: single section per type with sort/genre/era applied */}
+            {hasActiveFilters && (
+              <FilteredSection
+                key={`filtered-${activeTab}`}
+                tab={activeTab}
+                genreFilter={genreFilter}
+                gameSortMode={gameSortMode}
+                sortMode={sortMode}
+                ratingFloor={ratingFloor}
+                yearRange={yearRange}
+                platformFilter={platformFilter}
+                page={page}
+                hasMore={hasMore}
+                onHasMoreChange={handleHasMoreChange}
+                onLoadMore={() => setPage(p => p + 1)}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
             )}
 
-            {/* Movies section */}
-            {showMovies && (
-              <ContentBand zone="surface" size="lg" topBorder>
-                <div className="flex items-start gap-4 mb-10">
-                  <div className="flex-1">
-                    <p className="eyebrow text-amber-400 mb-5">Films</p>
-                    <h2 className="headline-lg text-ink">{movieSectionLabel}</h2>
-                  </div>
-                  <ViewToggle viewMode={viewMode} onToggle={setViewMode} />
-                </div>
-                {moviesLoading && trendMovies.length === 0 ? (
-                  <RowSkeleton />
-                ) : viewMode === 'grid' ? (
-                  renderGrid(trendMovies, 'movie', movieAddFn, movieCheckFn)
-                ) : (
-                  <ExpandableRow
-                    items={trendMovies.map(m => ({ item: m, type: 'movie' }))}
-                    cardWidth="w-52 sm:w-60"
-                    gap="gap-3"
-                    onAddToLibrary={movieAddFn}
-                    libraryCheck={movieCheckFn}
-                  />
-                )}
-                {hasMore.movies && (
-                  <LoadMoreButton
-                    onClick={() => setPage(p => p + 1)}
-                    loading={moviesLoading && trendMovies.length > 0}
-                  />
-                )}
-              </ContentBand>
-            )}
-
-            {/* Series section */}
-            {showSeries && (
-              <ContentBand zone="canvas" size="lg" topBorder>
-                <div className="flex items-start gap-4 mb-10">
-                  <div className="flex-1">
-                    <p className="eyebrow text-violet-400 mb-5">Series</p>
-                    <h2 className="headline-lg text-ink">{seriesSectionLabel}</h2>
-                  </div>
-                  <ViewToggle viewMode={viewMode} onToggle={setViewMode} />
-                </div>
-                {seriesLoading && trendSeries.length === 0 ? (
-                  <RowSkeleton />
-                ) : viewMode === 'grid' ? (
-                  renderGrid(trendSeries, 'series', seriesAddFn, seriesCheckFn)
-                ) : (
-                  <ExpandableRow
-                    items={trendSeries.map(s => ({ item: s, type: 'series' }))}
-                    cardWidth="w-52 sm:w-60"
-                    gap="gap-3"
-                    onAddToLibrary={seriesAddFn}
-                    libraryCheck={seriesCheckFn}
-                  />
-                )}
-                {hasMore.series && (
-                  <LoadMoreButton
-                    onClick={() => setPage(p => p + 1)}
-                    loading={seriesLoading && trendSeries.length > 0}
-                  />
-                )}
-              </ContentBand>
-            )}
+            {/* Rich browse mode: 10+ curated sections, no filters */}
+            {!hasActiveFilters && richSections.map((section, i) => (
+              <BrowseSection
+                key={section.id}
+                title={section.title}
+                fetchFn={section.fetch}
+                type={section.type}
+                delay={i * 300}
+                zone={i % 2 === 0 ? 'canvas' : 'surface'}
+              />
+            ))}
 
           </div>
         )}

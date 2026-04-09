@@ -21,6 +21,12 @@ export const mediaDiscoveryService = {
   getPopular: (page = 1) =>
     api.get('/movies/popular', { params: { page } }).then(r => r.data),
 
+  getTopRated: (page = 1) =>
+    api.get('/movies/top-rated', { params: { page } }).then(r => r.data),
+
+  getUpcoming: (page = 1) =>
+    api.get('/movies/upcoming', { params: { page } }).then(r => r.data),
+
   getDetails: (id) =>
     api.get(`/movies/${id}`).then(r => r.data),
 
