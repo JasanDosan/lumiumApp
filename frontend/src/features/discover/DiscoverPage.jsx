@@ -9,15 +9,16 @@
  */
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { rawgService }         from '@/services/rawgService';
+import { rawgService }           from '@/services/rawgService';
 import { mediaDiscoveryService } from '@/services/movieService';
-import { tvService }           from '@/services/tvService';
-import { useUserLibraryStore } from '@/features/library/libraryStore';
-import ExpandableRow           from '@/components/ui/ExpandableRow';
-import UnifiedCard             from '@/components/ui/UnifiedCard';
-import DragRow                 from '@/components/ui/DragRow';
-import ContentBand             from '@/components/ui/ContentBand';
-import { toast }               from '@/stores/toastStore';
+import { tvService }             from '@/services/tvService';
+import { useUserLibraryStore }   from '@/features/library/libraryStore';
+import { GAME_CATALOG }          from '@/data/gameMovieTags';
+import ExpandableRow             from '@/components/ui/ExpandableRow';
+import UnifiedCard               from '@/components/ui/UnifiedCard';
+import DragRow                   from '@/components/ui/DragRow';
+import ContentBand               from '@/components/ui/ContentBand';
+import { toast }                 from '@/stores/toastStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -212,27 +213,37 @@ function useDiscoverTrending(
 
       let gamePromise;
       if (tab === 'games' && genreId) {
-        // Genre filter on games tab → use getByCategory
+        // Genre filter on games tab → use getByCategory (no page support needed, category results are small)
         gamePromise = rawgService.getByCategory(genreId, gameCount);
       } else if (gameSortMode === 'top-rated') {
-        gamePromise = rawgService.getTopRated(gameCount, { ordering: '-rating', platform: platformId });
+        gamePromise = rawgService.getTopRated(gameCount, { ordering: '-rating', platform: platformId, page });
       } else if (gameSortMode === 'metacritic') {
-        gamePromise = rawgService.getTopRated(gameCount, { ordering: '-metacritic', platform: platformId });
+        gamePromise = rawgService.getTopRated(gameCount, { ordering: '-metacritic', platform: platformId, page });
       } else if (gameSortMode === 'newest') {
-        gamePromise = rawgService.getTrending(gameCount, { ordering: '-released', platform: platformId });
+        gamePromise = rawgService.getTrending(gameCount, { ordering: '-released', platform: platformId, page });
       } else {
-        gamePromise = rawgService.getTrending(gameCount, { ordering: '-added', platform: platformId });
+        gamePromise = rawgService.getTrending(gameCount, { ordering: '-added', platform: platformId, page });
       }
 
       gamePromise
         .then(results => {
           if (cancelled) return;
-          if (append) setGames(prev => [...prev, ...results]);
-          else         setGames(results);
-          onHasMoreChange('games', results.length >= 12);
+          setGames(prev => {
+            const existingIds = new Set(prev.map(g => g.id ?? g.rawId));
+            const fresh = results.filter(g => !existingIds.has(g.id ?? g.rawId));
+            return page === 1 ? results : [...prev, ...fresh];
+          });
+          onHasMoreChange('games', page < 5 && results.length >= 12);
         })
         .catch(() => {
-          if (!cancelled && !append) setGames([]);
+          if (cancelled) return;
+          if (page === 1) {
+            const TOP_GAMES = [...GAME_CATALOG]
+              .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+              .slice(0, 24);
+            setGames(TOP_GAMES);
+          }
+          // page > 1 failure: keep existing results — no append, no duplicates
         })
         .finally(() => { if (!cancelled) setGamesLoading(false); });
     }
