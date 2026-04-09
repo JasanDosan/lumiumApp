@@ -261,7 +261,7 @@ function DetailSkeleton() {
   return (
     <div className="min-h-screen bg-canvas">
       <div className="skeleton w-full" style={{ height: 'min(70vh, 640px)' }} />
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-12 space-y-14">
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-8 space-y-8">
         <div className="space-y-3">
           <div className="skeleton h-3 w-16 rounded" />
           <div className="skeleton h-4 w-full rounded" />
@@ -514,7 +514,7 @@ export default function GameDetailPage() {
       {/* ══════════════════════════════════════════════════════════════════
           CONTENT
       ══════════════════════════════════════════════════════════════════ */}
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 pb-24 space-y-14 pt-12">
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 pb-12 space-y-8 pt-8">
 
         {/* ── Stats strip ──────────────────────────────────────────────── */}
         {(game.metacritic || game.esrbRating || game.released || game.achievementsCount || game.playtimeAvg) && (

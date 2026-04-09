@@ -31,11 +31,11 @@ export default function ContentBand({
   }[zone] ?? 'bg-canvas';
 
   const paddingCls = {
-    compact: 'py-14 sm:py-20',
-    default: 'py-20 sm:py-24 lg:py-28',
-    lg:      'py-24 sm:py-32 lg:py-36',
-    hero:    'py-28 sm:py-36 lg:py-44',
-  }[size] ?? 'py-20 sm:py-24 lg:py-28';
+    compact: 'py-8 sm:py-12',
+    default: 'py-12 sm:py-16 lg:py-20',
+    lg:      'py-16 sm:py-20 lg:py-24',
+    hero:    'py-16 sm:py-20 lg:py-28',
+  }[size] ?? 'py-12 sm:py-16 lg:py-20';
 
   const borderCls  = topBorder ? 'border-t border-line' : '';
 

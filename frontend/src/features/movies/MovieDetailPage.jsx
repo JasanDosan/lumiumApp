@@ -162,7 +162,7 @@ function DetailSkeleton() {
   return (
     <div className="min-h-screen bg-canvas">
       <div className="skeleton w-full" style={{ height: 'min(80vh, 720px)' }} />
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-12 space-y-14">
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 py-8 space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-10">
           <div className="space-y-3">
             <div className="skeleton h-3 w-16 rounded" />
@@ -350,7 +350,7 @@ export default function MovieDetailPage() {
       />
 
       {/* ── Content sections ─────────────────────────────────────────────── */}
-      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 pb-20 space-y-14 pt-12">
+      <div className="max-w-screen-xl mx-auto px-5 sm:px-8 lg:px-12 pb-12 space-y-8 pt-8">
 
         {/* 1 — Info */}
         <InfoSection movie={movie} />

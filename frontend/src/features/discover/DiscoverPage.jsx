@@ -497,8 +497,8 @@ function BrowseSection({ title, fetchFn, type, delay = 0, zone = 'canvas' }) {
   if (!loading && items.length === 0) return null;
 
   return (
-    <ContentBand zone={zone} size="lg" topBorder>
-      <h2 className="headline-md text-ink mb-8">{title}</h2>
+    <ContentBand zone={zone} size="default" topBorder>
+      <h2 className="headline-md text-ink mb-4">{title}</h2>
       {loading ? <RowSkeleton /> : <MediaRow items={items} type={type} />}
     </ContentBand>
   );
@@ -762,10 +762,10 @@ function FilteredSection({
   return (
     <>
       {showGames && (
-        <ContentBand zone="canvas" size="lg" topBorder>
-          <div className="flex items-start gap-4 mb-10">
+        <ContentBand zone="canvas" size="default" topBorder>
+          <div className="flex items-start gap-4 mb-5">
             <div className="flex-1">
-              <p className="eyebrow text-accent mb-5">Games</p>
+              <p className="eyebrow text-accent mb-2">Games</p>
               <h2 className="headline-lg text-ink">{gameSectionLabel}</h2>
             </div>
             <ViewToggle viewMode={viewMode} onToggle={onViewModeChange} />
@@ -781,10 +781,10 @@ function FilteredSection({
       )}
 
       {showMovies && (
-        <ContentBand zone="surface" size="lg" topBorder>
-          <div className="flex items-start gap-4 mb-10">
+        <ContentBand zone="surface" size="default" topBorder>
+          <div className="flex items-start gap-4 mb-5">
             <div className="flex-1">
-              <p className="eyebrow text-amber-400 mb-5">Films</p>
+              <p className="eyebrow text-amber-400 mb-2">Films</p>
               <h2 className="headline-lg text-ink">{movieSectionLabel}</h2>
             </div>
             <ViewToggle viewMode={viewMode} onToggle={onViewModeChange} />
@@ -800,10 +800,10 @@ function FilteredSection({
       )}
 
       {showSeries && (
-        <ContentBand zone="canvas" size="lg" topBorder>
-          <div className="flex items-start gap-4 mb-10">
+        <ContentBand zone="canvas" size="default" topBorder>
+          <div className="flex items-start gap-4 mb-5">
             <div className="flex-1">
-              <p className="eyebrow text-violet-400 mb-5">Series</p>
+              <p className="eyebrow text-violet-400 mb-2">Series</p>
               <h2 className="headline-lg text-ink">{seriesSectionLabel}</h2>
             </div>
             <ViewToggle viewMode={viewMode} onToggle={onViewModeChange} />
@@ -948,12 +948,12 @@ export default function DiscoverPage() {
 
       {/* PAGE HERO */}
       <div
-        className="bg-canvas flex flex-col justify-center px-6 sm:px-12 lg:px-20 pb-20"
-        style={{ minHeight: '68vh' }}
+        className="bg-canvas flex flex-col justify-center px-6 sm:px-12 lg:px-20 pb-10"
+        style={{ minHeight: '50vh' }}
       >
         <div className="max-w-[1280px] mx-auto w-full pt-16">
-          <p className="eyebrow text-accent mb-7">Discover</p>
-          <h1 className="display text-ink mb-7 max-w-3xl">
+          <p className="eyebrow text-accent mb-4">Discover</p>
+          <h1 className="display text-ink mb-4 max-w-3xl">
             Find your next<br />obsession.
           </h1>
           <p className="body-lead text-ink-mid max-w-2xl">
@@ -1038,19 +1038,19 @@ export default function DiscoverPage() {
           <div key={`search-${activeTab}`} className="animate-fade-in">
 
             {searchLoading && (
-              <ContentBand zone="canvas" size="lg">
+              <ContentBand zone="canvas" size="default">
                 <GridSkeleton count={8} />
               </ContentBand>
             )}
 
             {!searchLoading && searchError && (
-              <ContentBand zone="canvas" size="lg">
+              <ContentBand zone="canvas" size="default">
                 <SearchError message={searchError} onRetry={handleRetry} />
               </ContentBand>
             )}
 
             {!searchLoading && !searchError && !hasAnyResult && (
-              <ContentBand zone="canvas" size="lg">
+              <ContentBand zone="canvas" size="default">
                 <NoResults query={debouncedQuery} />
               </ContentBand>
             )}
@@ -1058,9 +1058,9 @@ export default function DiscoverPage() {
             {!searchLoading && !searchError && hasAnyResult && (
               <div>
                 {showGames && searchGames.length > 0 && (
-                  <ContentBand zone="surface" size="lg" topBorder>
-                    <p className="eyebrow text-accent mb-5">Games</p>
-                    <h2 className="headline-lg text-ink mb-10">
+                  <ContentBand zone="surface" size="default" topBorder>
+                    <p className="eyebrow text-accent mb-2">Games</p>
+                    <h2 className="headline-lg text-ink mb-5">
                       Game results
                       <span className="ml-4 text-[1rem] font-normal text-ink-mid">{searchGames.length}</span>
                     </h2>
@@ -1068,9 +1068,9 @@ export default function DiscoverPage() {
                   </ContentBand>
                 )}
                 {showMovies && searchMovies.length > 0 && (
-                  <ContentBand zone="canvas" size="lg" topBorder>
-                    <p className="eyebrow text-amber-400 mb-5">Films</p>
-                    <h2 className="headline-lg text-ink mb-10">
+                  <ContentBand zone="canvas" size="default" topBorder>
+                    <p className="eyebrow text-amber-400 mb-2">Films</p>
+                    <h2 className="headline-lg text-ink mb-5">
                       Movie results
                       <span className="ml-4 text-[1rem] font-normal text-ink-mid">{searchMovies.length}</span>
                     </h2>
@@ -1078,9 +1078,9 @@ export default function DiscoverPage() {
                   </ContentBand>
                 )}
                 {showSeries && searchSeries.length > 0 && (
-                  <ContentBand zone="surface" size="lg" topBorder>
-                    <p className="eyebrow text-violet-400 mb-5">Series</p>
-                    <h2 className="headline-lg text-ink mb-10">
+                  <ContentBand zone="surface" size="default" topBorder>
+                    <p className="eyebrow text-violet-400 mb-2">Series</p>
+                    <h2 className="headline-lg text-ink mb-5">
                       TV Series results
                       <span className="ml-4 text-[1rem] font-normal text-ink-mid">{searchSeries.length}</span>
                     </h2>
