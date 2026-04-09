@@ -40,6 +40,7 @@ const normalizeMovie = (movie) => ({
   posterPath: movie.poster_path,
   posterUrl: buildImageUrl(movie.poster_path),
   backdropUrl: buildImageUrl(movie.backdrop_path, 'w1280'),
+  image: buildImageUrl(movie.poster_path),
   rating: movie.vote_average,
   voteCount: movie.vote_count,
   popularity: movie.popularity,

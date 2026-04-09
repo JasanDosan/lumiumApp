@@ -475,10 +475,11 @@ function BrowseSection({ title, fetchFn, type, delay = 0, zone = 'canvas' }) {
 
   useEffect(() => {
     if (fetchedRef.current) return;
-    fetchedRef.current = true;
     let cancelled = false;
 
     const timer = setTimeout(() => {
+      if (fetchedRef.current) return; // double-check after delay
+      fetchedRef.current = true;
       fnRef.current()
         .then(data => {
           if (cancelled) return;

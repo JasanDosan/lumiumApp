@@ -65,5 +65,19 @@ export default {
       },
     },
   },
+  safelist: [
+    // Accent (coral) — used via dynamic color prop in FilterChips, BrowseSection eyebrows
+    'bg-accent', 'text-accent', 'border-accent',
+    'bg-accent/15', 'border-accent/40', 'shadow-accent/20',
+    'focus:ring-accent/8', 'ring-accent', 'text-accent-light',
+    // Amber — Movies eyebrow / filter chips
+    'bg-amber-500', 'text-amber-500', 'border-amber-500',
+    'text-amber-400', 'shadow-amber-500/20',
+    // Violet — Series eyebrow / filter chips
+    'bg-violet-500', 'text-violet-500', 'border-violet-500',
+    'text-violet-400', 'shadow-violet-500/20',
+    // Gold — display typography
+    'text-gold', 'bg-gold', 'bg-gold-soft',
+  ],
   plugins: [],
 };
