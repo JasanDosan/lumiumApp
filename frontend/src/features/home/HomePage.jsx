@@ -812,20 +812,20 @@ export default function HomePage() {
 
       {/* ══ CHAPTER 2 — RECENTLY SAVED ══════════════════════════════════════ */}
       <ContentBand zone="surface" size="compact" topBorder>
-        <p className="eyebrow text-ink-light mb-3">Your library</p>
+        <p className="eyebrow text-ink-light mb-2">Your library</p>
         <RecentlySaved />
       </ContentBand>
 
       {/* ══ CHAPTER 3 — BECAUSE YOU PLAYED ═════════════════════════════════ */}
-      <ContentBand id="because-you-played" zone="canvas" size="default" topBorder>
-        <p className="eyebrow text-accent mb-3">Because you played</p>
+      <ContentBand id="because-you-played" zone="canvas" size="compact" topBorder>
+        <p className="eyebrow text-accent mb-2">Because you played</p>
         <BecauseYouPlayed />
       </ContentBand>
 
       {/* ══ CHAPTER 4 — TRENDING NOW (zones handled inside TrendingNow) ════ */}
-      <ContentBand zone="deep" size="default" topBorder contained={false}>
-        <div className="max-w-[1280px] mx-auto px-6 sm:px-12 lg:px-20 pb-6">
-          <p className="eyebrow text-amber-400 mb-3">Right now</p>
+      <ContentBand zone="deep" size="compact" topBorder contained={false}>
+        <div className="max-w-[1280px] mx-auto px-6 sm:px-12 lg:px-20 pb-4">
+          <p className="eyebrow text-amber-400 mb-1">Right now</p>
           <h2 className="headline-xl text-ink mb-2">Trending</h2>
           <p className="body-lead text-ink-mid max-w-2xl">
             What everyone is playing, watching, and saving this week.
@@ -835,7 +835,7 @@ export default function HomePage() {
       </ContentBand>
 
       {/* ══ CHAPTER 5 — BECAUSE YOU LIKE ════════════════════════════════════ */}
-      <ContentBand zone="accent-tint" size="default" topBorder>
+      <ContentBand zone="accent-tint" size="compact" topBorder>
         <BecauseYouLike
           categoryId={becauseCategoryId}
           games={recommendedGames}
@@ -846,9 +846,9 @@ export default function HomePage() {
       </ContentBand>
 
       {/* ══ CHAPTER 6 — BROWSE BY CATEGORY ═════════════════════════════════ */}
-      <ContentBand zone="canvas" size="default" topBorder>
+      <ContentBand zone="canvas" size="compact" topBorder>
         <section id="browse-categories">
-        <div className="flex items-start justify-between gap-6 mb-6">
+        <div className="flex items-start justify-between gap-6 mb-4">
           <div>
             <p className="eyebrow text-accent mb-3">Explore</p>
             <h2 className="headline-lg text-ink mb-2">What are you in the mood for?</h2>

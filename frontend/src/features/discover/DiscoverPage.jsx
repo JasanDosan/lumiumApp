@@ -497,8 +497,8 @@ function BrowseSection({ title, fetchFn, type, delay = 0, zone = 'canvas' }) {
   if (!loading && items.length === 0) return null;
 
   return (
-    <ContentBand zone={zone} size="default" topBorder>
-      <h2 className="headline-md text-ink mb-4">{title}</h2>
+    <ContentBand zone={zone} size="compact" topBorder>
+      <h2 className="headline-md text-ink mb-3">{title}</h2>
       {loading ? <RowSkeleton /> : <MediaRow items={items} type={type} />}
     </ContentBand>
   );

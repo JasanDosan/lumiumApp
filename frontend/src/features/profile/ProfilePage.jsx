@@ -266,7 +266,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ── Sections ───────────────────────────────────────────── */}
-        <div className="space-y-12">
+        <div className="space-y-6">
 
           {/* Steam integration */}
           <SteamSection />

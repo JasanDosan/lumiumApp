@@ -18,8 +18,8 @@ function TrendingSection({ eyebrow, headline, color, children }) {
 
   return (
     <section>
-      <p className={`eyebrow ${colorCls} mb-4`}>{eyebrow}</p>
-      <h3 className="headline-md text-ink mb-8">{headline}</h3>
+      <p className={`eyebrow ${colorCls} mb-1`}>{eyebrow}</p>
+      <h3 className="headline-md text-ink mb-4">{headline}</h3>
       {children}
     </section>
   );
@@ -77,7 +77,7 @@ export default function TrendingNow() {
   return (
     <div className="space-y-0">
       {/* Trending Games */}
-      <ContentBand zone="surface" size="lg" topBorder>
+      <ContentBand zone="surface" size="compact" topBorder>
         <TrendingSection eyebrow="Games" headline="Trending this week" color="accent">
           {gamesLoading ? <RowSkeleton /> : (
             <ExpandableRow
@@ -92,7 +92,7 @@ export default function TrendingNow() {
       </ContentBand>
 
       {/* Trending Movies */}
-      <ContentBand zone="canvas" size="lg" topBorder>
+      <ContentBand zone="canvas" size="compact" topBorder>
         <TrendingSection eyebrow="Films" headline="Popular this week" color="amber">
           {moviesLoading ? <RowSkeleton /> : (
             <ExpandableRow
@@ -107,7 +107,7 @@ export default function TrendingNow() {
       </ContentBand>
 
       {/* Trending Series */}
-      <ContentBand zone="surface" size="lg" topBorder>
+      <ContentBand zone="surface" size="compact" topBorder>
         <TrendingSection eyebrow="Series" headline="Trending on TV" color="violet">
           {seriesLoading ? <RowSkeleton /> : (
             <ExpandableRow

@@ -404,15 +404,15 @@ function RecommendationSection({ section, sourceMode, library, onAddToLibrary })
   const zoneAlt = type === 'game' ? 'surface' : type === 'movie' ? 'canvas' : 'surface';
 
   return (
-    <ContentBand zone={zoneAlt} size="lg" topBorder aria-label={title}>
-      <p className={`eyebrow mb-5 ${
+    <ContentBand zone={zoneAlt} size="default" topBorder aria-label={title}>
+      <p className={`eyebrow mb-1 ${
         color === 'accent' ? 'text-accent' :
         color === 'amber'  ? 'text-amber-400' :
         'text-violet-400'
       }`}>{overline}</p>
       <h2 className="headline-lg text-ink mb-4">{title}</h2>
       {reason && (
-        <p className="body-lead text-ink-mid max-w-2xl mb-10">{reason}</p>
+        <p className="body-lead text-ink-mid max-w-2xl mb-5">{reason}</p>
       )}
       <DragRow gap="gap-3">
         {items.map((scored, idx) => {
@@ -445,7 +445,7 @@ function EmptySourceState({ sourceMode }) {
   const cfg  = SOURCE_CONFIG[sourceMode];
   const noun = sourceMode === 'game' ? 'games' : sourceMode === 'movie' ? 'movies' : 'series';
   return (
-    <ContentBand zone="canvas" size="lg" topBorder>
+    <ContentBand zone="canvas" size="default" topBorder>
       <span className="text-6xl mb-8 block">{cfg.emoji}</span>
       <p className="eyebrow text-ink-light mb-6">No {noun} saved yet</p>
       <h2 className="headline-lg text-ink mb-6 max-w-xl">
@@ -471,7 +471,7 @@ function LowDataState({ sourceMode, count }) {
   const need = 2 - count;
   const noun = sourceMode === 'game' ? 'game' : sourceMode === 'movie' ? 'movie' : 'series';
   return (
-    <ContentBand zone="canvas" size="lg" topBorder>
+    <ContentBand zone="canvas" size="default" topBorder>
       <span className="text-6xl mb-8 block">{cfg.emoji}</span>
       <p className="eyebrow text-ink-light mb-6">Almost ready</p>
       <h2 className="headline-lg text-ink mb-6 max-w-xl">
@@ -496,7 +496,7 @@ function SectionSkeleton() {
   return (
     <div>
       {[0, 1, 2].map(i => (
-        <ContentBand key={i} zone={i % 2 === 0 ? 'canvas' : 'surface'} size="lg" topBorder>
+        <ContentBand key={i} zone={i % 2 === 0 ? 'canvas' : 'surface'} size="default" topBorder>
           <div className="skeleton h-2.5 w-16 rounded mb-5" />
           <div className="skeleton h-10 w-80 rounded mb-4" />
           <div className="skeleton h-4 w-96 rounded mb-12" />
@@ -632,7 +632,7 @@ export default function RecommendationsPage() {
       ) : isLoading ? (
         <SectionSkeleton />
       ) : sections.length === 0 ? (
-        <ContentBand zone="canvas" size="lg" topBorder>
+        <ContentBand zone="canvas" size="default" topBorder>
           <p className="body-lead text-ink-mid">
             No recommendations found with the current filters.{' '}
             <button

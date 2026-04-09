@@ -113,7 +113,7 @@ export default function PersonPage() {
         </div>
 
         {/* ── Film sections ─────────────────────────────────────────── */}
-        <div className="space-y-12 mt-10">
+        <div className="space-y-6 mt-6">
           {person.cast.length > 0 && (
             <SectionWrapper label="As actor" title="Known for">
               <MovieRow movies={person.cast} />

@@ -22,7 +22,7 @@ export default function SectionBlock({
   size      = 'md',
   count     = null,
   action    = null,
-  mb        = 'mb-6',
+  mb        = 'mb-5',
 }) {
   const colorMap = {
     accent:  'text-accent',
@@ -44,11 +44,11 @@ export default function SectionBlock({
       <div className="flex items-start justify-between gap-4 mb-2">
         <div className="flex-1 min-w-0">
           {overline && (
-            <p className={`eyebrow ${eyebrowColor} mb-2`}>{overline}</p>
+            <p className={`eyebrow ${eyebrowColor} mb-1`}>{overline}</p>
           )}
           <h2 className={`${titleClass} text-ink`}>{title}</h2>
           {subline && (
-            <p className="body-lead text-ink-mid mt-2 max-w-2xl">{subline}</p>
+            <p className="body-lead text-ink-mid mt-1.5 max-w-2xl">{subline}</p>
           )}
         </div>
         {(count != null || action) && (

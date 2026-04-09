@@ -108,10 +108,10 @@ function SectionHead({ type, count, onViewAll }) {
   const cfg   = TYPE_CFG[type];
   const eyebrowColor = type === 'game' ? 'text-accent' : type === 'movie' ? 'text-amber-400' : 'text-violet-400';
   return (
-    <div className="flex items-start justify-between gap-4 mb-10">
+    <div className="flex items-start justify-between gap-4 mb-4">
       <div>
-        <p className={`eyebrow ${eyebrowColor} mb-4`}>{cfg.overline}</p>
-        <h2 className="headline-lg text-ink">{cfg.label}</h2>
+        <p className={`eyebrow ${eyebrowColor} mb-1`}>{cfg.overline}</p>
+        <h2 className="headline-md text-ink">{cfg.label}</h2>
       </div>
       {count > 0 && onViewAll && (
         <button
@@ -130,7 +130,7 @@ function SectionHead({ type, count, onViewAll }) {
 function TypeEmptyState({ type }) {
   const cfg = TYPE_CFG[type];
   return (
-    <div className="flex flex-col items-center text-center py-20 border border-dashed border-line rounded-2xl">
+    <div className="flex flex-col items-center text-center py-12 border border-dashed border-line rounded-2xl">
       <p className="text-3xl mb-3">{cfg.emptyIcon}</p>
       <p className="text-sm font-semibold text-ink-mid mb-1.5">{cfg.emptyHead}</p>
       <p className="text-xs text-ink-light max-w-[26ch] leading-relaxed">{cfg.emptyBody}</p>
@@ -148,7 +148,7 @@ function TypeEmptyState({ type }) {
 
 function GlobalEmptyState() {
   return (
-    <div className="flex flex-col items-center text-center py-28 gap-5">
+    <div className="flex flex-col items-center text-center py-16 gap-4">
       <div className="w-16 h-16 rounded-2xl bg-surface-high border border-line
                       flex items-center justify-center text-2xl">
         📂
@@ -218,11 +218,11 @@ export default function FavoritesPage() {
       {/* ── Editorial Hero ──────────────────────────────────────────────────── */}
       <div
         className="bg-zone-deep flex flex-col justify-center px-6 sm:px-12 lg:px-20 border-b border-line/50"
-        style={{ minHeight: '60vh' }}
+        style={{ minHeight: '42vh' }}
       >
-        <div className="max-w-[1280px] mx-auto w-full pt-16 pb-16">
-          <p className="eyebrow text-accent mb-7">Your collection</p>
-          <h1 className="display text-ink mb-7">Library.</h1>
+        <div className="max-w-[1280px] mx-auto w-full pt-12 pb-10">
+          <p className="eyebrow text-accent mb-4">Your collection</p>
+          <h1 className="display text-ink mb-4">Library.</h1>
           {!loading && !isEmpty && (
             <div className="flex items-center gap-3 flex-wrap mb-4">
               <StatBadge
@@ -254,12 +254,12 @@ export default function FavoritesPage() {
 
       {/* ── Loading ─────────────────────────────────────────────────────────── */}
       {loading ? (
-        <ContentBand zone="canvas" size="lg">
+        <ContentBand zone="canvas" size="default">
           <LoadingSkeleton />
         </ContentBand>
 
       ) : isEmpty ? (
-        <ContentBand zone="canvas" size="lg" topBorder>
+        <ContentBand zone="canvas" size="default" topBorder>
           <GlobalEmptyState />
         </ContentBand>
 
@@ -310,7 +310,7 @@ export default function FavoritesPage() {
           {activeTab === 'all' && (
             <div key="all" className="animate-fade-in">
               {games.length > 0 && (
-                <ContentBand zone="canvas" size="lg" topBorder>
+                <ContentBand zone="canvas" size="default" topBorder>
                   <SectionHead type="game" count={games.length} onViewAll={() => setActiveTab('game')} />
                   <DragRow gap="gap-3">
                     {sortItems(games, sort).map(item => (
@@ -322,7 +322,7 @@ export default function FavoritesPage() {
                 </ContentBand>
               )}
               {movies.length > 0 && (
-                <ContentBand zone="surface" size="lg" topBorder>
+                <ContentBand zone="surface" size="default" topBorder>
                   <SectionHead type="movie" count={movies.length} onViewAll={() => setActiveTab('movie')} />
                   <DragRow gap="gap-3">
                     {sortItems(movies, sort).map(item => (
@@ -334,7 +334,7 @@ export default function FavoritesPage() {
                 </ContentBand>
               )}
               {series.length > 0 && (
-                <ContentBand zone="canvas" size="lg" topBorder>
+                <ContentBand zone="canvas" size="default" topBorder>
                   <SectionHead type="series" count={series.length} onViewAll={() => setActiveTab('series')} />
                   <DragRow gap="gap-3">
                     {sortItems(series, sort).map(item => (
@@ -351,12 +351,12 @@ export default function FavoritesPage() {
           {activeTab !== 'all' && (
             <div key={activeTab} className="animate-fade-in">
               {visibleItems.length === 0 ? (
-                <ContentBand zone="canvas" size="lg" topBorder>
+                <ContentBand zone="canvas" size="default" topBorder>
                   <TypeEmptyState type={activeTab} />
                 </ContentBand>
               ) : (
-                <ContentBand zone="canvas" size="lg" topBorder>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+                <ContentBand zone="canvas" size="default" topBorder>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
                     {visibleItems.map(item => (
                       <LibraryCard key={item.id} item={item} />
                     ))}
