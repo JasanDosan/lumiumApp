@@ -16,23 +16,23 @@
   }
 
   body {
-    background-color: #0b0b0f;
+    background-color: #0d0d0d;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: #f2f2f5;
+    color: #ffffff;
     min-height: 100dvh;
   }
 
   ::-webkit-scrollbar        { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track  { background: transparent; }
-  ::-webkit-scrollbar-thumb  { background: #2a2a3a; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb  { background: #333333; border-radius: 99px; }
 }
 
 @layer components {
 
   /* ─── Skeleton — dark shimmer ───────────────────────────────────────────── */
   .skeleton {
-    background-color: #16161f;
-    background-image: linear-gradient(90deg, #16161f 25%, #1f1f2e 50%, #16161f 75%);
+    background-color: #141420;
+    background-image: linear-gradient(90deg, #141420 25%, #1e1e2e 50%, #141420 75%);
     background-size: 200% 100%;
     animation: shimmer 1.8s infinite linear;
     border-radius: 4px;
@@ -46,7 +46,7 @@
     font-weight: 900;
     letter-spacing: -0.04em;
     line-height: 1.0;
-    color: #f2f2f5;
+    color: #e8c23a;
   }
 
   /* Headline XL — page heroes, major chapter openers */
@@ -55,7 +55,7 @@
     font-weight: 900;
     letter-spacing: -0.03em;
     line-height: 1.05;
-    color: #f2f2f5;
+    color: #e8c23a;
   }
 
   /* Headline LG — featured section titles */
@@ -64,7 +64,7 @@
     font-weight: 800;
     letter-spacing: -0.025em;
     line-height: 1.1;
-    color: #f2f2f5;
+    color: #ffffff;
   }
 
   /* Headline MD — subsection titles */
@@ -73,7 +73,7 @@
     font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.2;
-    color: #f2f2f5;
+    color: #ffffff;
   }
 
   /* Eyebrow — overlines, category labels */
@@ -98,20 +98,20 @@
     font-weight: 800;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: #5a5a70;
+    color: #888888;
   }
   .title-xl {
     font-size: 2rem;
     font-weight: 800;
     letter-spacing: -0.02em;
-    color: #f2f2f5;
+    color: #ffffff;
     line-height: 1.1;
   }
   .title-lg {
     font-size: 1.375rem;
     font-weight: 700;
     letter-spacing: -0.015em;
-    color: #f2f2f5;
+    color: #ffffff;
     line-height: 1.2;
   }
   /* Keep new scale classes for detail pages */
@@ -119,7 +119,7 @@
     font-size: clamp(1.75rem, 4vw, 2.5rem);
     font-weight: 900;
     letter-spacing: -0.025em;
-    color: #f2f2f5;
+    color: #ffffff;
     line-height: 1.1;
   }
   .hero-headline {
@@ -131,12 +131,12 @@
 
   /* ─── Divider ────────────────────────────────────────────────────────────── */
   .divider {
-    border-top: 1px solid #18182a;
+    border-top: 1px solid rgba(255,255,255,0.10);
   }
 
   /* ─── Focus ring ─────────────────────────────────────────────────────────── */
   *:focus-visible {
-    outline: 2px solid #8b5cf6;
+    outline: 2px solid #e8503a;
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -150,7 +150,7 @@
 
   /* ─── Primary button ─────────────────────────────────────────────────────── */
   .btn-primary {
-    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    background: linear-gradient(135deg, #e8503a, #c53020);
     color: white;
     border-radius: 999px;
     padding: 11px 22px;
@@ -166,7 +166,7 @@
   }
   .btn-primary:hover {
     transform: scale(1.03);
-    box-shadow: 0 0 28px rgba(139, 92, 246, 0.45);
+    box-shadow: 0 0 28px rgba(232, 80, 58, 0.45);
   }
 
   /* ─── Horizontal scroll row ──────────────────────────────────────────────── */
@@ -199,7 +199,7 @@
   .skeleton {
     animation: none !important;
     background-image: none !important;
-    background-color: #16161f !important;
+    background-color: #141420 !important;
   }
   .animate-fade-in,
   .animate-fade-up,

@@ -188,17 +188,17 @@ export const searchGames = async (query, count = 12) => {
   return (data.results ?? []).map(normalizeGame);
 };
 
-export const getTrendingGames = async (count = 12) => {
-  const { data } = await rawg.get('/games', {
-    params: { ordering: '-added', page_size: count },
-  });
+export const getTrendingGames = async (count = 12, { ordering = '-added', platform = null } = {}) => {
+  const params = { ordering, page_size: count };
+  if (platform) params.platforms = platform;
+  const { data } = await rawg.get('/games', { params });
   return (data.results ?? []).map(normalizeGame);
 };
 
-export const getTopRatedGames = async (count = 12) => {
-  const { data } = await rawg.get('/games', {
-    params: { ordering: '-rating', page_size: count },
-  });
+export const getTopRatedGames = async (count = 12, { ordering = '-rating', platform = null } = {}) => {
+  const params = { ordering, page_size: count };
+  if (platform) params.platforms = platform;
+  const { data } = await rawg.get('/games', { params });
   return (data.results ?? []).map(normalizeGame);
 };
 

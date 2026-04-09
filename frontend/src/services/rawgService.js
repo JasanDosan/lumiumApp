@@ -45,22 +45,24 @@ export const rawgService = {
   },
 
   /** Trending / recently-added games. */
-  getTrending: async (count = 12) => {
-    const key = cacheKey('trending', { count });
+  getTrending: async (count = 12, { ordering = '-added', platform = null } = {}) => {
+    const params = { count, ordering, ...(platform && { platform }) };
+    const key = cacheKey('trending', params);
     const cached = fromCache(key);
     if (cached) return cached;
-    const { data } = await api.get('/games/trending', { params: { count } });
+    const { data } = await api.get('/games/trending', { params });
     const results = data.results ?? [];
     toCache(key, results);
     return results;
   },
 
   /** Top-rated games. */
-  getTopRated: async (count = 12) => {
-    const key = cacheKey('top-rated', { count });
+  getTopRated: async (count = 12, { ordering = '-rating', platform = null } = {}) => {
+    const params = { count, ordering, ...(platform && { platform }) };
+    const key = cacheKey('top-rated', params);
     const cached = fromCache(key);
     if (cached) return cached;
-    const { data } = await api.get('/games/top-rated', { params: { count } });
+    const { data } = await api.get('/games/top-rated', { params });
     const results = data.results ?? [];
     toCache(key, results);
     return results;

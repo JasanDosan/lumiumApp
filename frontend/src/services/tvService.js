@@ -17,13 +17,15 @@ export const tvService = {
    * Discover TV series by genre/mood — mirrors movieService.discover.
    * Used by GameDetailPage to find series that match a game's themes.
    */
-  discover: ({ genres, sort_by = 'popularity.desc', rating_gte, page = 1 } = {}) =>
+  discover: ({ genres, sort_by = 'popularity.desc', rating_gte, year_gte, year_lte, page = 1 } = {}) =>
     api.get('/tv/discover', {
       params: {
         page,
         sort_by,
         ...(genres?.length && { genres: genres.join(',') }),
         ...(rating_gte && { rating_gte }),
+        ...(year_gte && { year_gte }),
+        ...(year_lte && { year_lte }),
       },
     }).then(r => r.data),
 };

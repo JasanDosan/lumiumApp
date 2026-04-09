@@ -44,8 +44,11 @@ export const search = async (req, res, next) => {
 
 export const getTrending = async (req, res, next) => {
   try {
-    const { count = 12 } = req.query;
-    const results = await rawg.getTrendingGames(Number(count));
+    const { count = 12, ordering = '-added', platform } = req.query;
+    const results = await rawg.getTrendingGames(Number(count), {
+      ordering,
+      platform: platform ? Number(platform) : null,
+    });
     res.json({ results });
   } catch (error) {
     next(error);
@@ -54,8 +57,11 @@ export const getTrending = async (req, res, next) => {
 
 export const getTopRated = async (req, res, next) => {
   try {
-    const { count = 12 } = req.query;
-    const results = await rawg.getTopRatedGames(Number(count));
+    const { count = 12, ordering = '-rating', platform } = req.query;
+    const results = await rawg.getTopRatedGames(Number(count), {
+      ordering,
+      platform: platform ? Number(platform) : null,
+    });
     res.json({ results });
   } catch (error) {
     next(error);

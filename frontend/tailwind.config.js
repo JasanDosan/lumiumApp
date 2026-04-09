@@ -7,31 +7,36 @@ export default {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
-        // ── Dark mode base ─────────────────────────────────────────────────
-        canvas:   '#0b0b0f',       // page background
-        surface:  '#111118',       // card / panel background — slightly lifted
-        'surface-high': '#1a1a28', // elevated surface, hover states
-        'zone-deep': '#08080c',    // deepest background zone
+        // ── Dark editorial base ────────────────────────────────────────────
+        canvas:          '#0d0d0d',    // page background
+        surface:         '#141420',    // card / panel background
+        'surface-high':  '#1e1e2e',    // elevated surface, hover states
+        'zone-deep':     '#080808',    // deepest background zone
         ink: {
-          DEFAULT: '#f2f2f5',      // primary text — off-white for refined feel
-          mid:     '#9898b0',      // secondary text
-          light:   '#5a5a70',      // muted text
-          faint:   '#333345',      // placeholders / disabled
+          DEFAULT: '#ffffff',          // primary text — pure white
+          mid:     '#c8c8c8',          // secondary text
+          light:   '#888888',          // muted text
+          faint:   '#444444',          // placeholders / disabled
         },
-        line:     '#18182a',       // borders, dividers — slightly more visible
-        subtle:   'rgba(255,255,255,0.06)', // subtle card borders
-        // ── Accent (purple) ────────────────────────────────────────────────
+        line:    'rgba(255,255,255,0.10)', // borders, dividers
+        subtle:  'rgba(255,255,255,0.06)', // subtle card borders
+        // ── Accent (coral) ─────────────────────────────────────────────────
         accent: {
-          DEFAULT: '#8b5cf6',
-          hover:   '#a78bfa',
-          light:   '#c4b5fd',      // light purple for text/icons
-          soft:    '#1e1732',
+          DEFAULT: '#e8503a',
+          hover:   '#d44030',
+          light:   '#f07a68',
+          soft:    '#2a1008',
+        },
+        // ── Gold — reserved for .display / .headline-xl only ──────────────
+        gold: {
+          DEFAULT: '#e8c23a',
+          soft:    '#2a1e08',
         },
         // ── Semantic ──────────────────────────────────────────────────────
         red: {
-          DEFAULT: '#e53e3e',
+          DEFAULT: '#e8503a',
           hover:   '#c53030',
-          soft:    '#2a1515',
+          soft:    '#2a1010',
         },
       },
       keyframes: {
