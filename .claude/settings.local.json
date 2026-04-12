@@ -23,7 +23,9 @@
       "Bash(find C:UsersjavieDesktopappMoviesfrontendsrc -name *.jsx -o -name *.js)",
       "WebFetch(domain:process-academy.org)",
       "Bash(xargs cat:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(head -20 grep -n \"games/:id\\\\|/game/\" \"C:/Users/javie/Desktop/appMovies/frontend/src/App.jsx\")",
+      "Bash(head -20 grep -n \"hasGame\\\\|addGame\\\\|removeGame\" \"C:/Users/javie/Desktop/appMovies/frontend/src/features/library/libraryStore.js\")"
     ]
   }
 }

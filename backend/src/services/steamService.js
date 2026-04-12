@@ -22,8 +22,27 @@ const steam = axios.create({
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STEAM_CDN = 'https://cdn.akamai.steamstatic.com/steam/apps';
-const ENRICH_LIMIT = 50; // only enrich top N games by playtime to respect RAWG rate limits
+const STEAM_CDN           = 'https://cdn.cloudflare.steamstatic.com/steam/apps';
+const STEAM_COMMUNITY_CDN = 'https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps';
+const ENRICH_LIMIT        = 50; // only enrich top N games by playtime to respect RAWG rate limits
+
+// ─── Image URL helpers (exported for frontend parity) ─────────────────────────
+
+/**
+ * Primary card image: 460×215 header capsule — ideal for horizontal surfaces.
+ */
+export function getSteamHeaderImage(appId) {
+  return `${STEAM_CDN}/${appId}/header.jpg`;
+}
+
+/**
+ * Small icon image built from the hash returned by the Steam API.
+ * Returns null when iconHash is absent.
+ */
+export function getSteamIconImage(appId, iconHash) {
+  if (!iconHash) return null;
+  return `${STEAM_COMMUNITY_CDN}/${appId}/${iconHash}.jpg`;
+}
 
 // ─── ID resolution ────────────────────────────────────────────────────────────
 
@@ -120,11 +139,9 @@ export async function fetchOwnedGames(steamId) {
 
 /**
  * Build the Steam CDN header image URL for a game.
- * Falls back to the icon URL if neither header nor logo is available.
  */
 function steamImageUrl(appId) {
-  // Steam header images are always available at this path for store games
-  return `${STEAM_CDN}/${appId}/header.jpg`;
+  return getSteamHeaderImage(appId);
 }
 
 /**
@@ -217,17 +234,17 @@ export async function fetchRecentlyPlayedGames(steamId) {
 
 /**
  * Normalize a raw recently-played game to the shape stored in User.steamRecentGames.
+ *
+ * Image fields:
+ *   primaryImage — 460×215 header capsule, best for horizontal cards
+ *   iconImage    — small hash-based icon, used as first fallback
  */
 export function normalizeRecentGame(rawGame) {
-  const iconHash = rawGame.img_icon_url;
-  const iconUrl  = iconHash
-    ? `https://media.steampowered.com/steamcommunity/public/images/apps/${rawGame.appid}/${iconHash}.jpg`
-    : null;
-
   return {
     appId:           rawGame.appid,
     name:            rawGame.name ?? `App ${rawGame.appid}`,
-    iconUrl,
+    primaryImage:    getSteamHeaderImage(rawGame.appid),
+    iconImage:       getSteamIconImage(rawGame.appid, rawGame.img_icon_url),
     playtime2Weeks:  rawGame.playtime_2weeks  ?? 0,
     playtimeForever: rawGame.playtime_forever ?? 0,
     importedAt:      new Date().toISOString(),
