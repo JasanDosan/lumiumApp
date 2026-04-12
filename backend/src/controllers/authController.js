@@ -30,10 +30,11 @@ export const getMe = (req, res) => {
     createdAt:      req.user.createdAt,
     steam: steam?.steamId
       ? {
-          connected:   true,
-          steamId:     steam.steamId,
-          personaName: steam.personaName,
-          avatarUrl:   steam.avatarUrl,
+          connected:    true,
+          steamId:      steam.steamId,
+          personaName:  steam.personaName,
+          avatarUrl:    steam.avatarUrl,
+          lastSyncedAt: steam.lastSyncedAt ?? null,
         }
       : null,
   });

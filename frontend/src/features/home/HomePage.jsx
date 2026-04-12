@@ -14,6 +14,7 @@ import InlineDetail from '@/components/ui/InlineDetail';
 import RecentlySaved from './sections/RecentlySaved';
 import TrendingNow from './sections/TrendingNow';
 import ContentBand from '@/components/ui/ContentBand';
+import SteamRecentRow from '@/features/steam/SteamRecentRow';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -815,6 +816,9 @@ export default function HomePage() {
         <p className="eyebrow text-ink-light mb-2">Your library</p>
         <RecentlySaved />
       </ContentBand>
+
+      {/* ══ STEAM RECENT — silently shown when connected + data available ═══ */}
+      <SteamRecentRow />
 
       {/* ══ CHAPTER 3 — BECAUSE YOU PLAYED ═════════════════════════════════ */}
       <ContentBand id="because-you-played" zone="canvas" size="compact" topBorder>

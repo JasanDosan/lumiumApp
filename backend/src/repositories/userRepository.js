@@ -48,7 +48,21 @@ export const updateSteamConnection = (userId, steamData) =>
 export const clearSteamConnection = (userId) =>
   User.findByIdAndUpdate(
     userId,
-    { $unset: { steam: 1 } },
+    { $unset: { steam: 1 }, $set: { steamRecentGames: [] } },
+    { new: true }
+  );
+
+export const updateSteamLastSynced = (userId) =>
+  User.findByIdAndUpdate(
+    userId,
+    { $set: { 'steam.lastSyncedAt': new Date() } },
+    { new: true }
+  );
+
+export const setRecentGames = (userId, games) =>
+  User.findByIdAndUpdate(
+    userId,
+    { $set: { steamRecentGames: games } },
     { new: true }
   );
 

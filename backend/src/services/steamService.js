@@ -192,6 +192,48 @@ async function findRawgMatch(title) {
   }
 }
 
+// ─── Recently played fetch ────────────────────────────────────────────────────
+
+/**
+ * Fetch up to 20 recently played games for a given SteamID64.
+ * Returns empty array (not an error) when profile is private or no recent activity.
+ *
+ * Raw shape per game: { appid, name, playtime_2weeks, playtime_forever, img_icon_url }
+ */
+export async function fetchRecentlyPlayedGames(steamId) {
+  const { data } = await steam.get('/IPlayerService/GetRecentlyPlayedGames/v1/', {
+    params: {
+      key:     process.env.STEAM_API_KEY,
+      steamid: steamId,
+      count:   20,
+    },
+  });
+
+  const response = data?.response;
+  // total_count missing or 0 = private profile or no activity — not an error
+  if (!response || !response.games) return [];
+  return response.games ?? [];
+}
+
+/**
+ * Normalize a raw recently-played game to the shape stored in User.steamRecentGames.
+ */
+export function normalizeRecentGame(rawGame) {
+  const iconHash = rawGame.img_icon_url;
+  const iconUrl  = iconHash
+    ? `https://media.steampowered.com/steamcommunity/public/images/apps/${rawGame.appid}/${iconHash}.jpg`
+    : null;
+
+  return {
+    appId:           rawGame.appid,
+    name:            rawGame.name ?? `App ${rawGame.appid}`,
+    iconUrl,
+    playtime2Weeks:  rawGame.playtime_2weeks  ?? 0,
+    playtimeForever: rawGame.playtime_forever ?? 0,
+    importedAt:      new Date().toISOString(),
+  };
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**

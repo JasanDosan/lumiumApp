@@ -42,17 +42,44 @@ function computeDecades(favorites) {
 // ─── Steam connect section ────────────────────────────────────────────────────
 
 function SteamSection() {
-  const { status, error, lastSyncAt, lastSteamId, lastImported, lastTotal, importLibrary, reset } =
-    useSteamStore();
+  const {
+    status, error, lastSyncAt, lastSteamId, lastImported, lastTotal,
+    importLibrary, syncLibrary, syncRecent, recentGames, recentStatus, reset,
+  } = useSteamStore();
+  const { user } = useAuthStore();
   const { games } = useLibraryStore();
 
-  const [input, setInput]   = useState(lastSteamId ?? '');
-  const [dirty, setDirty]   = useState(false);
+  const [input, setInput] = useState(lastSteamId ?? '');
+  const [dirty, setDirty] = useState(false);
 
+  // Is this user connected via Steam OpenID?
+  const steamConnected = !!user?.steam?.connected;
   const steamGames     = games.filter(g => g.source === 'steam');
   const hasConnected   = !!lastSyncAt;
   const isLoading      = status === 'loading';
 
+  // ── One-click sync when OpenID is connected ───────────────────────────────
+  const handleOneClickSync = async () => {
+    reset();
+    try {
+      const result = await syncLibrary();
+      if (result.imported > 0) {
+        toast(`Imported ${result.imported} game${result.imported !== 1 ? 's' : ''} from Steam`);
+      } else {
+        toast('Library is up to date — no new games to import');
+      }
+    } catch { /* error state set in store */ }
+  };
+
+  const handleSyncRecent = async () => {
+    try {
+      const result = await syncRecent();
+      const n = result?.count ?? 0;
+      toast(n > 0 ? `Synced ${n} recently played game${n !== 1 ? 's' : ''}` : 'No recent activity found');
+    } catch { /* error state set in store */ }
+  };
+
+  // ── Manual form submit (fallback for non-OpenID flow) ────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     const val = input.trim();
@@ -66,61 +93,135 @@ function SteamSection() {
       } else {
         toast('Library is up to date — no new games to import');
       }
-    } catch {
-      // error state is set in useSteamStore — no additional handling needed
-    }
+    } catch { /* error state set in store */ }
   };
 
   const syncLabel = isLoading
     ? 'Importing…'
-    : hasConnected && !dirty
-      ? 'Sync again'
-      : 'Import games';
+    : hasConnected && !dirty ? 'Sync again' : 'Import games';
 
   return (
-    <section>
-      <div className="mb-5">
+    <section className="space-y-6">
+      <div>
         <p className="section-label mb-1">Steam</p>
-        <h2 className="text-lg font-semibold text-ink">Connect Steam library</h2>
+        <h2 className="text-lg font-semibold text-ink">Steam library</h2>
         <p className="text-sm text-ink-light mt-1 max-w-prose">
-          Import your owned Steam games into your Lumium library. Your Steam profile must be public.
+          Import your owned Steam games into Lumium. Your Steam profile must be set to public.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5 max-w-lg">
-        <input
-          type="text"
-          value={input}
-          onChange={e => { setInput(e.target.value); setDirty(true); }}
-          placeholder="Steam profile URL or SteamID64"
-          disabled={isLoading}
-          className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-line bg-surface
-                     text-ink placeholder:text-ink-light
-                     focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/60
-                     disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        />
-        <button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-          className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-semibold bg-ink text-white
-                     hover:bg-ink/80 disabled:opacity-40 disabled:cursor-not-allowed
-                     transition-colors flex items-center gap-2"
-        >
-          {isLoading && (
-            <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+      {/* ── Connected via OpenID: one-click sync ─────────────────────────── */}
+      {steamConnected ? (
+        <div className="space-y-3">
+          {/* Connection badge */}
+          <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full
+                          border border-line/60 bg-surface text-xs">
+            {user.steam.avatarUrl && (
+              <img
+                src={user.steam.avatarUrl}
+                alt={user.steam.personaName}
+                className="w-4 h-4 rounded-full object-cover shrink-0"
+              />
+            )}
+            <span className="font-medium text-ink">{user.steam.personaName || user.steam.steamId}</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+          </div>
+
+          {/* One-click actions */}
+          <div className="flex flex-wrap gap-2.5">
+            <button
+              onClick={handleOneClickSync}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
+                         bg-ink text-white hover:bg-ink/80 disabled:opacity-40
+                         disabled:cursor-not-allowed transition-colors"
+            >
+              {isLoading && (
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+              )}
+              {isLoading ? 'Syncing…' : hasConnected ? 'Sync library' : 'Import library'}
+            </button>
+            <button
+              onClick={handleSyncRecent}
+              disabled={recentStatus === 'loading'}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
+                         border border-line text-ink-mid hover:text-ink hover:border-ink/40
+                         disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {recentStatus === 'loading' && (
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-ink-mid border-t-transparent animate-spin" />
+              )}
+              {recentStatus === 'loading' ? 'Syncing…' : 'Sync recent games'}
+            </button>
+          </div>
+
+          {/* Recent games list */}
+          {recentGames.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black tracking-[0.18em] uppercase text-ink-light mb-3">
+                Recently played
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {recentGames.slice(0, 10).map(g => (
+                  <div
+                    key={g.appId}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-line
+                               bg-surface text-xs"
+                  >
+                    {g.iconUrl && (
+                      <img src={g.iconUrl} alt={g.name} className="w-4 h-4 rounded shrink-0" />
+                    )}
+                    <span className="text-ink font-medium truncate max-w-[120px]">{g.name}</span>
+                    {g.playtime2Weeks > 0 && (
+                      <span className="text-ink-light tabular-nums shrink-0">
+                        {g.playtime2Weeks >= 60
+                          ? `${(g.playtime2Weeks / 60).toFixed(1)}h`
+                          : `${g.playtime2Weeks}m`}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
-          {syncLabel}
-        </button>
-      </form>
+        </div>
+      ) : (
+        /* ── Not connected via OpenID: manual input form ───────────────────── */
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5 max-w-lg">
+          <input
+            type="text"
+            value={input}
+            onChange={e => { setInput(e.target.value); setDirty(true); }}
+            placeholder="Steam profile URL or SteamID64"
+            disabled={isLoading}
+            className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-line bg-surface
+                       text-ink placeholder:text-ink-light
+                       focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/60
+                       disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-semibold bg-ink text-white
+                       hover:bg-ink/80 disabled:opacity-40 disabled:cursor-not-allowed
+                       transition-colors flex items-center gap-2"
+          >
+            {isLoading && (
+              <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+            )}
+            {syncLabel}
+          </button>
+        </form>
+      )}
 
       {/* Error state */}
       {status === 'error' && error && (
-        <p className="mt-3 text-sm text-red-500">{error}</p>
+        <p className="text-sm text-red-500">{error}</p>
       )}
 
-      {/* Last sync status */}
+      {/* Last sync metadata */}
       {hasConnected && status !== 'error' && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-light">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-light">
           <span>
             Last synced{' '}
             {new Date(lastSyncAt).toLocaleString(undefined, {
@@ -129,7 +230,7 @@ function SteamSection() {
           </span>
           {lastTotal != null && (
             <span>
-              {lastImported} new · {steamGames.length} total Steam game{steamGames.length !== 1 ? 's' : ''} in library
+              {lastImported} new · {steamGames.length} total in library
             </span>
           )}
         </div>
@@ -137,11 +238,11 @@ function SteamSection() {
 
       {/* Steam games count badge */}
       {steamGames.length > 0 && (
-        <div className="mt-5 inline-flex items-center gap-2.5 px-4 py-2 rounded-xl
+        <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl
                         border border-line bg-surface text-sm">
           <span className="text-base">🎮</span>
           <span className="font-semibold text-ink">{steamGames.length}</span>
-          <span className="text-ink-light">Steam game{steamGames.length !== 1 ? 's' : ''} imported</span>
+          <span className="text-ink-light">game{steamGames.length !== 1 ? 's' : ''} imported from Steam</span>
           <Link
             to="/library"
             className="ml-1 text-xs text-accent hover:text-accent-hover transition-colors font-medium"

@@ -13,10 +13,10 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { useAuthStore }    from '@/features/auth/authStore';
-import { useSteamStore }   from '@/features/steam/useSteamStore';
-import { steamService }    from '@/services/steamService';
-import { toast }           from '@/stores/toastStore';
+import { useAuthStore }  from '@/features/auth/authStore';
+import { useSteamStore } from '@/features/steam/useSteamStore';
+import { steamService }  from '@/services/steamService';
+import { toast }         from '@/stores/toastStore';
 
 // ─── Steam SVG (inline — no external dep) ─────────────────────────────────────
 
@@ -45,13 +45,14 @@ function SteamIcon({ className }) {
 
 export default function SteamConnectButton() {
   const { isAuthenticated, user } = useAuthStore();
-  const { disconnectSteam, disconnectStatus } = useSteamStore();
+  const { disconnectSteam, disconnectStatus, syncLibrary, syncRecent, status, recentStatus } =
+    useSteamStore();
 
-  const [menuOpen, setMenuOpen]   = useState(false);
+  const [menuOpen, setMenuOpen]     = useState(false);
   const [connecting, setConnecting] = useState(false);
   const menuRef = useRef(null);
 
-  const steam = user?.steam;  // null | { connected, steamId, personaName, avatarUrl }
+  const steam = user?.steam;  // null | { connected, steamId, personaName, avatarUrl, lastSyncedAt }
 
   // ── Click outside to close menu ──────────────────────────────────────────
   useEffect(() => {
@@ -90,7 +91,30 @@ export default function SteamConnectButton() {
     }
   };
 
+  const handleSyncLibrary = async () => {
+    setMenuOpen(false);
+    try {
+      const result = await syncLibrary();
+      const n = result?.imported ?? 0;
+      toast(n > 0 ? `Imported ${n} new game${n !== 1 ? 's' : ''} from Steam` : 'Library up to date');
+    } catch (err) {
+      toast(err?.response?.data?.message ?? 'Library sync failed', 'error');
+    }
+  };
+
+  const handleSyncRecent = async () => {
+    setMenuOpen(false);
+    try {
+      const result = await syncRecent();
+      const n = result?.count ?? 0;
+      toast(n > 0 ? `Synced ${n} recently played game${n !== 1 ? 's' : ''}` : 'No recent activity found');
+    } catch {
+      toast('Failed to sync recent games', 'error');
+    }
+  };
+
   const isDisconnecting = disconnectStatus === 'loading';
+  const isSyncing       = status === 'loading' || recentStatus === 'loading';
 
   // ─────────────────────────────────────────────────────────────────────────
   // CONNECTED STATE
@@ -135,7 +159,7 @@ export default function SteamConnectButton() {
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-full mt-2 w-52 bg-surface border border-line
+            className="absolute right-0 top-full mt-2 w-56 bg-surface border border-line
                        rounded-xl shadow-xl z-[60] overflow-hidden py-1 animate-fade-in"
           >
             {/* Info row */}
@@ -146,15 +170,49 @@ export default function SteamConnectButton() {
               <p className="text-sm font-medium text-ink truncate">
                 {steam.personaName || steam.steamId}
               </p>
-              <p className="text-[11px] text-emerald-400 font-medium mt-0.5">Connected</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                <p className="text-[11px] text-emerald-400 font-medium">Connected</p>
+              </div>
+              {steam.lastSyncedAt && (
+                <p className="text-[10px] text-ink-light mt-1">
+                  Synced {new Date(steam.lastSyncedAt).toLocaleDateString(undefined, {
+                    month: 'short', day: 'numeric',
+                  })}
+                </p>
+              )}
             </div>
 
-            {/* Actions */}
+            {/* Sync actions */}
+            <button
+              role="menuitem"
+              onClick={handleSyncLibrary}
+              disabled={isSyncing}
+              className="w-full text-left px-3 py-2 text-[13px] text-ink-mid hover:text-ink
+                         hover:bg-surface-high transition-colors disabled:opacity-50
+                         disabled:cursor-not-allowed"
+            >
+              {status === 'loading' ? 'Syncing library…' : 'Sync library'}
+            </button>
+            <button
+              role="menuitem"
+              onClick={handleSyncRecent}
+              disabled={isSyncing}
+              className="w-full text-left px-3 py-2 text-[13px] text-ink-mid hover:text-ink
+                         hover:bg-surface-high transition-colors disabled:opacity-50
+                         disabled:cursor-not-allowed"
+            >
+              {recentStatus === 'loading' ? 'Syncing recent…' : 'Sync recent games'}
+            </button>
+
+            {/* Divider */}
+            <div className="border-t border-line/40 my-1" />
+
             <button
               role="menuitem"
               onClick={handleDisconnect}
-              disabled={isDisconnecting}
-              className="w-full text-left px-3 py-2 text-[13px] text-ink-mid hover:text-ink
+              disabled={isDisconnecting || isSyncing}
+              className="w-full text-left px-3 py-2 text-[13px] text-ink-light hover:text-ink
                          hover:bg-surface-high transition-colors disabled:opacity-50
                          disabled:cursor-not-allowed"
             >

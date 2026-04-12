@@ -41,6 +41,17 @@ const steamConnectionSchema = new mongoose.Schema({
   personaName: { type: String, default: '' },
   avatarUrl:   { type: String, default: '' },
   connectedAt: { type: Date,   default: Date.now },
+  lastSyncedAt: { type: Date,  default: null },
+}, { _id: false });
+
+// ─── Steam recent game (stored after sync-recent) ─────────────────────────────
+const steamRecentGameSchema = new mongoose.Schema({
+  appId:          { type: Number, required: true },
+  name:           { type: String, default: '' },
+  iconUrl:        { type: String, default: null },
+  playtime2Weeks: { type: Number, default: 0 },   // minutes
+  playtimeForever: { type: Number, default: 0 },  // minutes
+  importedAt:     { type: Date, default: Date.now },
 }, { _id: false });
 
 const recommendationHistorySchema = new mongoose.Schema({
@@ -74,8 +85,9 @@ const userSchema = new mongoose.Schema({
     minlength: [8, 'Password must be at least 8 characters'],
     select: false,
   },
-  library: { type: [libraryItemSchema], default: [] },
-  steam:   { type: steamConnectionSchema, default: null },
+  library:           { type: [libraryItemSchema],        default: [] },
+  steam:             { type: steamConnectionSchema,       default: null },
+  steamRecentGames:  { type: [steamRecentGameSchema],     default: [] },
   recommendationHistory: {
     type: [recommendationHistorySchema],
     default: [],

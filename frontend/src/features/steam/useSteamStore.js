@@ -1,10 +1,13 @@
 /**
  * useSteamStore.js
  *
- * Manages Steam import state. Responsibilities:
- *   - Holds import status: 'idle' | 'loading' | 'success' | 'error'
- *   - Persists last import result to localStorage so sync info survives page reload
- *   - Exposes importLibrary() — the only entry point for a Steam fetch
+ * Manages all Steam-related UI state. Responsibilities:
+ *   - Holds import/sync status: 'idle' | 'loading' | 'success' | 'error'
+ *   - Holds recently played games in memory (populated after syncRecent)
+ *   - Persists last sync metadata to localStorage so sync info survives reload
+ *   - Exposes importLibrary()  — manual import by URL/ID (legacy ProfilePage form)
+ *   - Exposes syncLibrary()    — auto-sync using connected steamId (no manual input)
+ *   - Exposes syncRecent()     — fetch + store recently played games
  *   - Calls useUserLibraryStore.addItem() for each new game after a successful import
  *
  * What it does NOT own:
@@ -32,57 +35,61 @@ function lsSaveSync(data) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch { /* unavailable */ }
 }
 
+// ─── Shared import helper ─────────────────────────────────────────────────────
+
+/**
+ * After a successful library import response, apply returned items to the
+ * library store and persist sync metadata to localStorage + store state.
+ */
+function applyImportResult(set, result) {
+  if (result.library) {
+    const { addItem } = useUserLibraryStore.getState();
+    for (const item of result.library) {
+      if (item.source === 'steam') addItem(item);
+    }
+  }
+
+  const syncMeta = {
+    lastSyncAt:   new Date().toISOString(),
+    lastSteamId:  result.steamId,
+    lastImported: result.imported,
+    lastTotal:    result.totalFetched,
+  };
+  lsSaveSync(syncMeta);
+  set({ status: 'success', error: null, ...syncMeta });
+  return result;
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useSteamStore = create((set, get) => {
   const cached = lsLoadSync();
 
   return {
-    // ── State ─────────────────────────────────────────────────────────────────
+    // ── Library import state ──────────────────────────────────────────────────
     status:        'idle',   // 'idle' | 'loading' | 'success' | 'error'
     error:         null,
-    lastSyncAt:    cached?.lastSyncAt    ?? null,  // ISO string
+    lastSyncAt:    cached?.lastSyncAt    ?? null,
     lastSteamId:   cached?.lastSteamId   ?? null,
-    lastImported:  cached?.lastImported  ?? null,  // count on last sync
-    lastTotal:     cached?.lastTotal     ?? null,  // total games fetched on last sync
+    lastImported:  cached?.lastImported  ?? null,
+    lastTotal:     cached?.lastTotal     ?? null,
 
-    // ── Import ────────────────────────────────────────────────────────────────
-    /**
-     * Run a full Steam import for the given input.
-     * Only one import can be in-flight at a time.
-     * On success, applies all returned library items via addItem().
-     */
+    // ── Recent games state ────────────────────────────────────────────────────
+    recentGames:    [],      // SteamRecentGame[] — populated after syncRecent
+    recentStatus:   'idle',  // 'idle' | 'loading' | 'success' | 'error'
+    recentError:    null,
+
+    // ── Disconnect state ──────────────────────────────────────────────────────
+    disconnectStatus: 'idle',
+
+    // ── importLibrary: manual import by URL/steamId/vanity slug ───────────────
     async importLibrary(steamInput) {
       if (get().status === 'loading') return;
-
       set({ status: 'loading', error: null });
 
       try {
         const result = await steamService.importLibrary(steamInput);
-
-        // Apply the authoritative library from the backend response
-        // (steamController returns the full updated library)
-        if (result.library) {
-          const { addItem } = useUserLibraryStore.getState();
-          for (const item of result.library) {
-            if (item.source === 'steam') {
-              // addItem is idempotent — safe to call for existing items
-              await addItem(item);
-            }
-          }
-        }
-
-        const syncMeta = {
-          lastSyncAt:   new Date().toISOString(),
-          lastSteamId:  result.steamId,
-          lastImported: result.imported,
-          lastTotal:    result.totalFetched,
-        };
-        lsSaveSync(syncMeta);
-
-        set({ status: 'success', error: null, ...syncMeta });
-
-        return result;
+        return applyImportResult(set, result);
       } catch (err) {
         const message = err?.response?.data?.message ?? err.message ?? 'Import failed. Try again.';
         set({ status: 'error', error: message });
@@ -90,33 +97,80 @@ export const useSteamStore = create((set, get) => {
       }
     },
 
-    // ── Disconnect Steam account ───────────────────────────────────────────────
+    // ── syncLibrary: auto-sync using the connected steamId ────────────────────
     /**
-     * Calls the backend to unlink Steam, then patches authStore.user in place
-     * so the UI reflects the change immediately (no re-fetch needed).
+     * Uses the steamId stored from OpenID — no manual input needed.
+     * Requires user to have completed Steam connect flow.
      */
-    disconnectStatus: 'idle',   // 'idle' | 'loading' | 'success' | 'error'
+    async syncLibrary() {
+      if (get().status === 'loading') return;
+      set({ status: 'loading', error: null });
 
+      try {
+        const result = await steamService.syncLibrary();
+        // Patch authStore.user.steam.lastSyncedAt so header/profile reflect it
+        useAuthStore.setState(state => ({
+          user: state.user?.steam
+            ? { ...state.user, steam: { ...state.user.steam, lastSyncedAt: new Date().toISOString() } }
+            : state.user,
+        }));
+        return applyImportResult(set, result);
+      } catch (err) {
+        const message = err?.response?.data?.message ?? err.message ?? 'Sync failed. Try again.';
+        set({ status: 'error', error: message });
+        throw err;
+      }
+    },
+
+    // ── syncRecent: fetch recently played games and store in state ─────────────
+    async syncRecent() {
+      if (get().recentStatus === 'loading') return;
+      set({ recentStatus: 'loading', recentError: null });
+
+      try {
+        const result = await steamService.syncRecent();
+        set({ recentGames: result.recent ?? [], recentStatus: 'success', recentError: null });
+        return result;
+      } catch (err) {
+        const message = err?.response?.data?.message ?? err.message ?? 'Failed to fetch recent games.';
+        set({ recentStatus: 'error', recentError: message });
+        throw err;
+      }
+    },
+
+    // ── loadRecent: load stored recent games from backend (no new fetch) ───────
+    async loadRecent() {
+      if (get().recentStatus === 'loading') return;
+      set({ recentStatus: 'loading', recentError: null });
+
+      try {
+        const result = await steamService.getRecent();
+        set({ recentGames: result.recent ?? [], recentStatus: 'success', recentError: null });
+      } catch {
+        set({ recentStatus: 'idle', recentError: null });
+      }
+    },
+
+    // ── disconnectSteam ───────────────────────────────────────────────────────
     async disconnectSteam() {
       if (get().disconnectStatus === 'loading') return;
       set({ disconnectStatus: 'loading' });
       try {
         await steamService.disconnect();
-        // Patch the user object in authStore without a full re-fetch
         useAuthStore.setState(state => ({
           user: state.user ? { ...state.user, steam: null } : null,
         }));
-        set({ disconnectStatus: 'success' });
+        // Clear recent games from state
+        set({ disconnectStatus: 'success', recentGames: [], recentStatus: 'idle' });
       } catch {
         set({ disconnectStatus: 'error' });
         throw new Error('Failed to disconnect Steam');
       } finally {
-        // Reset to idle after a brief moment so callers can check success once
         setTimeout(() => set({ disconnectStatus: 'idle' }), 1500);
       }
     },
 
-    // ── Reset import status ───────────────────────────────────────────────────
+    // ── reset import status ───────────────────────────────────────────────────
     reset() {
       set({ status: 'idle', error: null });
     },
