@@ -15,6 +15,7 @@
 import { create } from 'zustand';
 import { steamService } from '@/services/steamService';
 import { useUserLibraryStore } from '@/features/library/libraryStore';
+import { useAuthStore } from '@/features/auth/authStore';
 
 const LS_KEY = 'pm_steam_sync';
 
@@ -89,7 +90,33 @@ export const useSteamStore = create((set, get) => {
       }
     },
 
-    // ── Reset ─────────────────────────────────────────────────────────────────
+    // ── Disconnect Steam account ───────────────────────────────────────────────
+    /**
+     * Calls the backend to unlink Steam, then patches authStore.user in place
+     * so the UI reflects the change immediately (no re-fetch needed).
+     */
+    disconnectStatus: 'idle',   // 'idle' | 'loading' | 'success' | 'error'
+
+    async disconnectSteam() {
+      if (get().disconnectStatus === 'loading') return;
+      set({ disconnectStatus: 'loading' });
+      try {
+        await steamService.disconnect();
+        // Patch the user object in authStore without a full re-fetch
+        useAuthStore.setState(state => ({
+          user: state.user ? { ...state.user, steam: null } : null,
+        }));
+        set({ disconnectStatus: 'success' });
+      } catch {
+        set({ disconnectStatus: 'error' });
+        throw new Error('Failed to disconnect Steam');
+      } finally {
+        // Reset to idle after a brief moment so callers can check success once
+        setTimeout(() => set({ disconnectStatus: 'idle' }), 1500);
+      }
+    },
+
+    // ── Reset import status ───────────────────────────────────────────────────
     reset() {
       set({ status: 'idle', error: null });
     },

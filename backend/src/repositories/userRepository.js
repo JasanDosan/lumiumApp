@@ -38,6 +38,20 @@ export const setLibraryItemField = (userId, id, updates) => {
   );
 };
 
+export const updateSteamConnection = (userId, steamData) =>
+  User.findByIdAndUpdate(
+    userId,
+    { $set: { steam: steamData } },
+    { new: true }
+  );
+
+export const clearSteamConnection = (userId) =>
+  User.findByIdAndUpdate(
+    userId,
+    { $unset: { steam: 1 } },
+    { new: true }
+  );
+
 export const pushRecommendationHistory = (userId, historyEntry) =>
   User.findByIdAndUpdate(
     userId,

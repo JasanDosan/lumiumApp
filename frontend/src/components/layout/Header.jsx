@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/features/auth/authStore';
+import SteamConnectButton from '@/components/ui/SteamConnectButton';
 import { useGameStore } from '@/features/games/gameStore';
 import {
   useUserLibraryStore,
@@ -355,9 +356,10 @@ export default function Header() {
             )}
           </nav>
 
-          {/* Desktop right area: search + auth */}
+          {/* Desktop right area: search + steam + auth */}
           <div className="hidden md:flex items-center gap-5 ml-auto">
             <SearchBar />
+            <SteamConnectButton />
             {isAuthenticated ? (
               <NavLink to="/profile" className={navLinkClass}>
                 <div className="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center

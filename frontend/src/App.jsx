@@ -1,10 +1,10 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import ToastContainer from '@/components/ui/Toast';
 import { useAuthStore } from '@/features/auth/authStore';
-import { useEffect } from 'react';
+import { toast } from '@/stores/toastStore';
 
 // ─── Route-level code splitting ───────────────────────────────────────────────
 
@@ -29,8 +29,43 @@ function RouteSpinner() {
   );
 }
 
+// ─── Steam callback feedback ───────────────────────────────────────────────────
+// After the Steam OpenID redirect, the backend sends back ?steam=connected|error.
+// initAuth() (called below) already re-fetches the user, so the steam data is
+// fresh. We just need to surface the toast and clean the URL.
+
+function useSteamCallbackFeedback() {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const steam = searchParams.get('steam');
+    if (!steam) return;
+
+    if (steam === 'connected') {
+      toast('Steam connected!');
+    } else if (steam === 'error') {
+      const reason = searchParams.get('reason');
+      const msgs = {
+        cancelled:          'Steam connection cancelled.',
+        no_token:           'Session expired. Please log in again.',
+        invalid_token:      'Session expired. Please log in again.',
+        invalid_assertion:  'Steam verification failed. Try again.',
+        server_error:       'Something went wrong. Try again.',
+      };
+      toast(msgs[reason] ?? 'Steam connection failed.', 'error');
+    }
+
+    // Remove steam params from URL without adding a history entry
+    const next = new URLSearchParams(searchParams);
+    next.delete('steam');
+    next.delete('reason');
+    setSearchParams(next, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — run once on mount
+}
+
 export default function App() {
   const { initAuth } = useAuthStore();
+  useSteamCallbackFeedback();
 
   useEffect(() => {
     initAuth();

@@ -35,6 +35,14 @@ const libraryItemSchema = new mongoose.Schema({
   addedAt:     { type: Date, default: Date.now },
 }, { _id: false });
 
+// ─── Steam connection (optional) ─────────────────────────────────────────────
+const steamConnectionSchema = new mongoose.Schema({
+  steamId:     { type: String, required: true },
+  personaName: { type: String, default: '' },
+  avatarUrl:   { type: String, default: '' },
+  connectedAt: { type: Date,   default: Date.now },
+}, { _id: false });
+
 const recommendationHistorySchema = new mongoose.Schema({
   generatedAt: { type: Date, default: Date.now },
   // ── New generic fields ─────────────────────────────────────────────────────
@@ -67,6 +75,7 @@ const userSchema = new mongoose.Schema({
     select: false,
   },
   library: { type: [libraryItemSchema], default: [] },
+  steam:   { type: steamConnectionSchema, default: null },
   recommendationHistory: {
     type: [recommendationHistorySchema],
     default: [],

@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { register, login, getMe } from '../controllers/authController.js';
+import {
+  steamLogin,
+  steamCallback,
+  steamDisconnect,
+} from '../controllers/authSteamController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validate } from '../middleware/validate.js';
 
@@ -28,5 +33,13 @@ router.post(
 );
 
 router.get('/me', protect, getMe);
+
+// ─── Steam OpenID account linking ─────────────────────────────────────────────
+// GET  /api/auth/steam/login        → initiates OpenID flow (needs ?token=<jwt>)
+// GET  /api/auth/steam/callback     → Steam redirect target; verifies & saves
+// POST /api/auth/steam/disconnect   → unlinks Steam from the authenticated user
+router.get('/steam/login',       steamLogin);
+router.get('/steam/callback',    steamCallback);
+router.post('/steam/disconnect', protect, steamDisconnect);
 
 export default router;

@@ -21,7 +21,8 @@
       "Bash(npm test:*)",
       "Bash(grep:*)",
       "Bash(find C:UsersjavieDesktopappMoviesfrontendsrc -name *.jsx -o -name *.js)",
-      "WebFetch(domain:process-academy.org)"
+      "WebFetch(domain:process-academy.org)",
+      "Bash(xargs cat:*)"
     ]
   }
 }

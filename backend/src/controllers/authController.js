@@ -21,11 +21,20 @@ export const login = async (req, res, next) => {
 };
 
 export const getMe = (req, res) => {
+  const { steam } = req.user;
   res.json({
-    id: req.user._id,
-    name: req.user.name,
-    email: req.user.email,
+    id:             req.user._id,
+    name:           req.user.name,
+    email:          req.user.email,
     favoritesCount: req.user.favoritesCount,
-    createdAt: req.user.createdAt,
+    createdAt:      req.user.createdAt,
+    steam: steam?.steamId
+      ? {
+          connected:   true,
+          steamId:     steam.steamId,
+          personaName: steam.personaName,
+          avatarUrl:   steam.avatarUrl,
+        }
+      : null,
   });
 };
