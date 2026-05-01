@@ -1,0 +1,220 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #0d0d0d;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #ffffff;
+    min-height: 100dvh;
+  }
+
+  ::-webkit-scrollbar        { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: #333333; border-radius: 99px; }
+}
+
+@layer components {
+
+  /* ─── Skeleton — dark shimmer ───────────────────────────────────────────── */
+  .skeleton {
+    background-color: #141420;
+    background-image: linear-gradient(90deg, #141420 25%, #1e1e2e 50%, #141420 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.8s infinite linear;
+    border-radius: 4px;
+  }
+
+  /* ─── Typography scale — fluid, viewport-responsive ─────────────────────── */
+
+  /* Display — home masthead, fullscreen heroes */
+  .display {
+    font-size: clamp(3rem, 7.5vw, 6.5rem);
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+    color: #e8c23a;
+  }
+
+  /* Headline XL — page heroes, major chapter openers */
+  .headline-xl {
+    font-size: clamp(2.25rem, 5vw, 4.5rem);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    color: #e8c23a;
+  }
+
+  /* Headline LG — featured section titles */
+  .headline-lg {
+    font-size: clamp(1.75rem, 3.5vw, 3.25rem);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    color: #ffffff;
+  }
+
+  /* Headline MD — subsection titles */
+  .headline-md {
+    font-size: clamp(1.25rem, 2vw, 1.875rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: #ffffff;
+  }
+
+  /* Eyebrow — overlines, category labels */
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+
+  /* Body lead — editorial supporting paragraphs */
+  .body-lead {
+    font-size: clamp(1rem, 1.5vw, 1.125rem);
+    font-weight: 400;
+    line-height: 1.75;
+  }
+
+  /* ─── Legacy compatibility — kept for detail/secondary pages ─────────────── */
+  .section-label {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #888888;
+  }
+  .title-xl {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+    line-height: 1.1;
+  }
+  .title-lg {
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: #ffffff;
+    line-height: 1.2;
+  }
+  /* Keep new scale classes for detail pages */
+  .section-title-xl {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 900;
+    letter-spacing: -0.025em;
+    color: #ffffff;
+    line-height: 1.1;
+  }
+  .hero-headline {
+    font-size: clamp(2.25rem, 5vw, 4rem);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+
+  /* ─── Divider ────────────────────────────────────────────────────────────── */
+  .divider {
+    border-top: 1px solid rgba(255,255,255,0.10);
+  }
+
+  /* ─── Focus ring ─────────────────────────────────────────────────────────── */
+  *:focus-visible {
+    outline: 2px solid #e8503a;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* ─── Active press feedback ──────────────────────────────────────────────── */
+  button:not(:disabled):active,
+  [role="button"]:not(:disabled):active {
+    transform: scale(0.97);
+    transition-duration: 0.08s !important;
+  }
+
+  /* ─── Primary button ─────────────────────────────────────────────────────── */
+  .btn-primary {
+    background: linear-gradient(135deg, #e8503a, #c53020);
+    color: white;
+    border-radius: 999px;
+    padding: 11px 22px;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.25s ease;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: -0.01em;
+  }
+  .btn-primary:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 28px rgba(232, 80, 58, 0.45);
+  }
+
+  /* ─── Horizontal scroll row ──────────────────────────────────────────────── */
+  .scroll-row {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .scroll-row::-webkit-scrollbar { display: none; }
+
+  /* ─── Editorial section divider line ─────────────────────────────────────── */
+  .chapter-line {
+    width: 2.5rem;
+    height: 2px;
+    background: currentColor;
+    opacity: 0.25;
+  }
+}
+
+/* ─── Shimmer keyframe ─────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* ─── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none !important;
+    background-image: none !important;
+    background-color: #141420 !important;
+  }
+  .animate-fade-in,
+  .animate-fade-up,
+  .animate-slide-up,
+  .animate-shimmer {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

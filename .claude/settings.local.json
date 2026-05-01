@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/javie/Desktop/appMovies/frontend -name *.css -o -name tailwind.config.js)",
+      "Bash(xargs ls:*)",
+      "Bash(grep -E \"\\\\.\\(js|jsx\\)$\")",
+      "Bash(curl -s http://localhost:5000/api/movies/trending)",
+      "Bash(curl -s http://localhost:5000/api/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"\"\"\"email\"\"\"\":\"\"\"\"test@test.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"test1234\"\"\"\"}')",
+      "Bash(curl -s \"http://localhost:5000/api/movies/trending\" -H \"Accept: application/json\")",
+      "Bash(node -e \":*)",
+      "Bash(npx eslint:*)",
+      "Bash(npm run:*)",
+      "Bash(node --input-type=module --eval \":*)",
+      "Bash(ls C:/Users/javie/Desktop/appMovies/frontend/.env*)",
+      "Bash(grep -v \"//\")",
+      "Bash(npx vite:*)",
+      "Bash(curl -s \"https://api.rawg.io/api/games?key=5c1b60035d0447c18d83762d2883d8fe&search=zelda&page_size=3\")",
+      "Bash(node -e \"const v = require\\(''./package.json''\\); console.log\\(''vite:'', v.dependencies?.vite || v.devDependencies?.vite\\); console.log\\(''react:'', v.dependencies?.react\\)\")",
+      "Bash(find C:UsersjavieDesktopappMoviesfrontendsrcfeatures -name *Store.js -o -name *store.js)",
+      "Bash(ls:*)",
+      "Bash(npm test:*)",
+      "Bash(grep:*)",
+      "Bash(find C:UsersjavieDesktopappMoviesfrontendsrc -name *.jsx -o -name *.js)",
+      "WebFetch(domain:process-academy.org)",
+      "Bash(xargs cat:*)",
+      "Bash(npx tsc:*)",
+      "Bash(head -20 grep -n \"games/:id\\\\|/game/\" \"C:/Users/javie/Desktop/appMovies/frontend/src/App.jsx\")",
+      "Bash(head -20 grep -n \"hasGame\\\\|addGame\\\\|removeGame\" \"C:/Users/javie/Desktop/appMovies/frontend/src/features/library/libraryStore.js\")"
+    ]
+  }
+}
